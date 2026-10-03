@@ -1,37 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/loan.css';
 import { API_BASE_URL } from '../../../config';
-
-const Applicants = () => {
-    const [applications, setApplications] = useState([]);
+const Closed = () => {
+    const [loans, setLoans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     const loanerToken = localStorage.getItem('loaner_token');
 
     useEffect(() => {
-        fetchApplications();
-    }, []); 
+        fetchLoans();
+    }, []);
 
-    const fetchApplications = async () => {
+    const fetchLoans = async () => {
         try {
             setLoading(true);
 
-            const response = await fetch(`${API_BASE_URL}/loans/applications`, {
+            const response = await fetch(`${API_BASE_URL}/loans?status=closed`, {
                 headers: {
-                    "Content-Type":"application/json",
                     Authorization: `Bearer ${loanerToken}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch applications');
+                throw new Error('Failed to fetch closed loans');
             }
 
             const data = await response.json();
 
-            console.log(data);
-            setApplications(data.applications || data || []);
+            setLoans(data.loans || data || []);
         } catch (error) {
             console.error(error);
         } finally {
@@ -39,8 +36,9 @@ const Applicants = () => {
         }
     };
 
-    const filteredApplications = applications.filter((loan) => {
-        const name = `${loan.firstname || ''} ${loan.lastname || ''}`.toLowerCase();
+    const filteredLoans = loans.filter((loan) => {
+        const name =
+            `${loan.firstname || ''} ${loan.lastname || ''}`.toLowerCase();
 
         return name.includes(search.toLowerCase());
     });
@@ -50,12 +48,12 @@ const Applicants = () => {
 
             <div className="loans-header">
                 <div>
-                    <h1>Loan Applications</h1>
-                    <p>Review and manage pending loan applications.</p>
+                    <h1>Closed Loans</h1>
+                    <p>View completed and fully paid loans.</p>
                 </div>
 
                 <div className="loan-count">
-                    {applications.length} Applications
+                    {loans.length} Closed
                 </div>
             </div>
 
@@ -72,35 +70,38 @@ const Applicants = () => {
 
                 {loading ? (
                     <div className="loan-empty">
-                        <span>Loading applications...</span>
+                        Loading closed loans...
                     </div>
-                ) : filteredApplications.length === 0 ? (
+                ) : filteredLoans.length === 0 ? (
                     <div className="loan-empty">
-                        <h3>No Applications</h3>
-                        <p>There are no pending loan applications.</p>
+                        <h3>No Closed Loans</h3>
+                        <p>No completed loans found.</p>
                     </div>
                 ) : (
                     <table className="loan-table">
+
                         <thead>
                             <tr>
                                 <th>Member</th>
                                 <th>Loan Type</th>
                                 <th>Principal</th>
-                                <th>Interest</th>
                                 <th>Total Due</th>
-                                <th>Date</th>
+                                <th>Total Paid</th>
+                                <th>Release Date</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {filteredApplications.map((loan) => (
+
+                            {filteredLoans.map((loan) => (
+
                                 <tr key={loan.id}>
 
                                     <td>
                                         <div className="member-name">
-                                            {loan.member_name} {loan.lastname}
+                                            {loan.firstname} {loan.lastname}
                                         </div>
                                     </td>
 
@@ -109,15 +110,21 @@ const Applicants = () => {
                                     </td>
 
                                     <td>
-                                        ₱{Number(loan.principalAmount || 0).toLocaleString()}
+                                        ₱{Number(
+                                            loan.principalAmount || 0
+                                        ).toLocaleString()}
                                     </td>
 
                                     <td>
-                                        {loan.interest || 0}%
+                                        ₱{Number(
+                                            loan.totalDue || 0
+                                        ).toLocaleString()}
                                     </td>
 
-                                    <td>
-                                        ₱{Number(loan.totalDue || 0).toLocaleString()}
+                                    <td className="paid">
+                                        ₱{Number(
+                                            loan.total_paid || loan.totalDue || 0
+                                        ).toLocaleString()}
                                     </td>
 
                                     <td>
@@ -125,8 +132,8 @@ const Applicants = () => {
                                     </td>
 
                                     <td>
-                                        <span className="loan-status pending">
-                                            {loan.status}
+                                        <span className="loan-status closed">
+                                            Closed
                                         </span>
                                     </td>
 
@@ -137,8 +144,11 @@ const Applicants = () => {
                                     </td>
 
                                 </tr>
+
                             ))}
+
                         </tbody>
+
                     </table>
                 )}
 
@@ -147,4 +157,4 @@ const Applicants = () => {
     );
 };
 
-export default Applicants;
+export default Closed;

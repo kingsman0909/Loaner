@@ -1,37 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/loan.css';
 import { API_BASE_URL } from '../../../config';
-
-const Applicants = () => {
-    const [applications, setApplications] = useState([]);
+const Overdue = () => {
+    const [loans, setLoans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     const loanerToken = localStorage.getItem('loaner_token');
 
     useEffect(() => {
-        fetchApplications();
-    }, []); 
+        fetchLoans();
+    }, []);
 
-    const fetchApplications = async () => {
+    const fetchLoans = async () => {
         try {
             setLoading(true);
 
-            const response = await fetch(`${API_BASE_URL}/loans/applications`, {
+            const response = await fetch(`${API_BASE_URL}/loans?status=overdue`, {
                 headers: {
-                    "Content-Type":"application/json",
                     Authorization: `Bearer ${loanerToken}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch applications');
+                throw new Error('Failed to fetch overdue loans');
             }
 
             const data = await response.json();
 
-            console.log(data);
-            setApplications(data.applications || data || []);
+            setLoans(data.loans || data || []);
         } catch (error) {
             console.error(error);
         } finally {
@@ -39,23 +36,24 @@ const Applicants = () => {
         }
     };
 
-    const filteredApplications = applications.filter((loan) => {
-        const name = `${loan.firstname || ''} ${loan.lastname || ''}`.toLowerCase();
+    const filteredLoans = loans.filter((loan) => {
+        const name =
+            `${loan.firstname || ''} ${loan.lastname || ''}`.toLowerCase();
 
         return name.includes(search.toLowerCase());
     });
 
     return (
-        <div className="loans-page">
+        <div className="loans-page overdue-page">
 
             <div className="loans-header">
                 <div>
-                    <h1>Loan Applications</h1>
-                    <p>Review and manage pending loan applications.</p>
+                    <h1>Overdue Loans</h1>
+                    <p>Monitor loans that have passed their due date.</p>
                 </div>
 
-                <div className="loan-count">
-                    {applications.length} Applications
+                <div className="loan-count danger-count">
+                    {loans.length} Overdue
                 </div>
             </div>
 
@@ -72,35 +70,37 @@ const Applicants = () => {
 
                 {loading ? (
                     <div className="loan-empty">
-                        <span>Loading applications...</span>
+                        Loading overdue loans...
                     </div>
-                ) : filteredApplications.length === 0 ? (
+                ) : filteredLoans.length === 0 ? (
                     <div className="loan-empty">
-                        <h3>No Applications</h3>
-                        <p>There are no pending loan applications.</p>
+                        <h3>No Overdue Loans</h3>
+                        <p>Everyone is currently up to date.</p>
                     </div>
                 ) : (
                     <table className="loan-table">
+
                         <thead>
                             <tr>
                                 <th>Member</th>
                                 <th>Loan Type</th>
-                                <th>Principal</th>
-                                <th>Interest</th>
-                                <th>Total Due</th>
-                                <th>Date</th>
+                                <th>Remaining</th>
+                                <th>Due Date</th>
+                                <th>Days Overdue</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {filteredApplications.map((loan) => (
+
+                            {filteredLoans.map((loan) => (
+
                                 <tr key={loan.id}>
 
                                     <td>
                                         <div className="member-name">
-                                            {loan.member_name} {loan.lastname}
+                                            {loan.firstname} {loan.lastname}
                                         </div>
                                     </td>
 
@@ -108,37 +108,40 @@ const Applicants = () => {
                                         {loan.loan_type || loan.type || 'Loan'}
                                     </td>
 
-                                    <td>
-                                        ₱{Number(loan.principalAmount || 0).toLocaleString()}
+                                    <td className="remaining">
+                                        ₱{Number(
+                                            loan.remaining_balance || 0
+                                        ).toLocaleString()}
                                     </td>
 
                                     <td>
-                                        {loan.interest || 0}%
+                                        {loan.due_date || '-'}
                                     </td>
 
                                     <td>
-                                        ₱{Number(loan.totalDue || 0).toLocaleString()}
+                                        <strong className="overdue-days">
+                                            {loan.days_overdue || 0} days
+                                        </strong>
                                     </td>
 
                                     <td>
-                                        {loan.releaseDate || '-'}
-                                    </td>
-
-                                    <td>
-                                        <span className="loan-status pending">
-                                            {loan.status}
+                                        <span className="loan-status overdue">
+                                            Overdue
                                         </span>
                                     </td>
 
                                     <td>
-                                        <button className="loan-action">
-                                            View
+                                        <button className="loan-action danger-action">
+                                            Collect
                                         </button>
                                     </td>
 
                                 </tr>
+
                             ))}
+
                         </tbody>
+
                     </table>
                 )}
 
@@ -147,4 +150,4 @@ const Applicants = () => {
     );
 };
 
-export default Applicants;
+export default Overdue;

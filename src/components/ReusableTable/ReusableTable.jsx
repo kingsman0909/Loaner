@@ -6,13 +6,9 @@ const ReusableTable = ({data}) => {
 
   const headers = data.length > 0 ? Object.keys(data[0]) : [];
   
-
-  useEffect(()=>{
-    
-  }, [data])
   return (
-    <div className='reuse-wrapper'>
-      <table className='reuse-table'>
+    <div className='loan-table-wrapper'>
+      <table className='loan-table'>
         <thead>
           <tr>
             {headers.map((head, i)=>(
@@ -30,7 +26,7 @@ const ReusableTable = ({data}) => {
                     <td key={head}>{String(info[head])}</td>
                   ))
                 }
-                <td><button>View</button></td>
+                <td><button className='loan-action'>View</button></td>
               </tr>
             ))}
         </tbody>

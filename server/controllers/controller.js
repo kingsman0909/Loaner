@@ -33,7 +33,8 @@ const signupLoaner = async (req, res) => {
 }
 
 const changePassword = async (req, res) => {
-    console.log("controller reach change pass")
+
+    console.log("controller reach change pass", req.user)
     try{
         const result = await authService.changePass(req.body);
 
@@ -47,8 +48,23 @@ const changePassword = async (req, res) => {
 }
 
 
+const getLoans = async(req, res) => {
+    console.log('getting loans')
+    try{
+        const result = await authService.getLoans(req.user);
+
+        res.json(result)
+    }
+    catch(err){
+        res.status(401).json({
+            message: err.message
+        })
+    }
+}
+
 module.exports = {
     loginLoaner,
     signupLoaner,
-    changePassword
+    changePassword,
+    getLoans
 }

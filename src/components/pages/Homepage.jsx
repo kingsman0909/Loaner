@@ -5,6 +5,8 @@ import {useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import Overview from '../contents/Dashboard/Overview';
 import Active from '../contents/Loans/Active';
+import Overdue from '../contents/Loans/Overdue';
+import Closed from '../contents/Loans/Closed';
 import Applicants from '../contents/Loans/Applicants';
 import '../../styles/homepage.css';
 import { API_BASE_URL } from '../../config';
@@ -72,7 +74,7 @@ const Homepage = () => {
         if(!token){
             alert('no token found');
         }
-        console.log(loaner_token, "jajhaj");
+        console.log(JSON.parse(token), "jajhaj");
         setLoaner(JSON.parse(token));
     }, [])
 
@@ -100,6 +102,8 @@ const Homepage = () => {
                 {active === 'Overview' && <Overview />}
                 {active === 'Active' && <Active />}
                 {active === 'Applications' && <Applicants />}
+                {active === 'Overdue' && <Overdue />}
+                {active === 'Closed' && <Closed />}
             </div>
         </div>
       </section>

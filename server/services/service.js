@@ -70,8 +70,20 @@ const changePass = async ({username, newPassword, current}) => {
     return result;
 }
 
+const getLoans = async({id}) => {
+    try{
+        const result = await Loaner.getLoans(id);
+
+        return result;
+    }
+    catch(err){
+        throw new Error('Error getting loans in service')
+    }
+}
+
 module.exports = {
     loginLoaner,
     signupLoaner,
-    changePass
+    changePass,
+    getLoans
 }

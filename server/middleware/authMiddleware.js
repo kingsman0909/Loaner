@@ -11,12 +11,12 @@ const verifyToken = (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    console.log(token);
     try {
         const decode = jwt.verify(token, process.env.JWT_SECRET);
         const user = decode.result;
-
-        if(user.username === req.body.username){
+        
+        if(decode){
+            req.user = user;
             next();
         }
 

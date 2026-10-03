@@ -3,6 +3,7 @@
     flex-direction: column;
     width: 100%;
     padding-top: 30px;
+    gap: 40px;
 }
 
 .o-top{
@@ -36,7 +37,7 @@
 
 
 
-@media (max-width: 700px){
+@media (max-width: 1000px){
     .o-top{
         grid-template-columns: repeat(2, 1fr);
     }

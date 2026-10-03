@@ -9,7 +9,7 @@ const Sidebar = (props) => {
 
     const pages = {
         'Dashboard': 'Overview',
-        'Loans': ['Applications', 'Active', 'Overdue', 'Closed'],
+        'Loans': ['Applications', 'Active', 'Overdue', 'Closed', 'Pending', 'Paid'],
         'Borrowers': ['Members', 'Blacklisted'],
         'Transactions': ['Collections', 'Disbursements', 'Penalities & Fees'],
         'Reports': ['Collection Report', 'Profit / Interest Report'],
