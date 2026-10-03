@@ -390,13 +390,11 @@ const getMemberLoans = async (loanerId, memberId) => {
 // =========================================================
 // ALL LOANS OF LOANER
 // =========================================================
-
 const getLoans = async (loanerId, options = {}) => {
-
     const {
         status = '',
         search = '',
-        limit = 100,
+        limit = 20,
         offset = 0
     } = options;
 
@@ -406,31 +404,33 @@ const getLoans = async (loanerId, options = {}) => {
 
     let params = [loanerId];
 
-
+    // =========================
+    // STATUS FILTER
+    // =========================
     if (status) {
-
-        conditions.push(`
-            l.status = ?
-        `);
-
+        conditions.push(`l.status = ?`);
         params.push(status);
     }
 
+    // =========================
+    // SEARCH
+    // =========================
+    if (search && search.trim()) {
 
-    if (search) {
+        const keyword = `%${search.trim()}%`;
 
         conditions.push(`
             (
                 m.firstname LIKE ?
                 OR m.lastname LIKE ?
+                OR CONCAT(m.firstname, ' ', m.lastname) LIKE ?
                 OR m.contact LIKE ?
                 OR CAST(l.id AS CHAR) LIKE ?
             )
         `);
 
-        const keyword = `%${search}%`;
-
         params.push(
+            keyword,
             keyword,
             keyword,
             keyword,
@@ -438,7 +438,29 @@ const getLoans = async (loanerId, options = {}) => {
         );
     }
 
+    const whereClause = conditions.join(' AND ');
 
+    // =========================
+    // TOTAL COUNT
+    // =========================
+    const [countRows] = await db.query(`
+        SELECT COUNT(DISTINCT l.id) AS total
+        FROM loans l
+
+        INNER JOIN member m
+            ON m.id = l.member_id
+
+        LEFT JOIN loan_type lt
+            ON lt.id = l.loan_type_id
+
+        WHERE ${whereClause}
+    `, params);
+
+    const total = Number(countRows[0]?.total || 0);
+
+    // =========================
+    // LOANS
+    // =========================
     const [rows] = await db.query(`
         SELECT
 
@@ -452,8 +474,16 @@ const getLoans = async (loanerId, options = {}) => {
 
             m.contact AS member_contact,
 
+            -- =========================
+            -- LOAN TYPE
+            -- =========================
             lt.type AS loan_type,
 
+            lt.interest AS interest_rate,
+
+            -- =========================
+            -- PAYMENTS
+            -- =========================
             COALESCE(
                 SUM(p.amount_paid),
                 0
@@ -479,23 +509,31 @@ const getLoans = async (loanerId, options = {}) => {
         LEFT JOIN payments p
             ON p.loan_id = l.id
 
-        WHERE ${conditions.join(' AND ')}
+        WHERE ${whereClause}
 
         GROUP BY l.id
 
         ORDER BY l.id DESC
 
         LIMIT ? OFFSET ?
+
     `, [
         ...params,
         Number(limit),
         Number(offset)
     ]);
 
-    return rows;
+    return {
+        data: rows,
+        pagination: {
+            total,
+            limit: Number(limit),
+            offset: Number(offset),
+            hasMore: Number(offset) + rows.length < total,
+            nextOffset: Number(offset) + rows.length
+        }
+    };
 };
-
-
 // =========================================================
 // FIND ONE LOAN
 // =========================================================

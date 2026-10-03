@@ -70,16 +70,34 @@ const changePass = async ({username, newPassword, current}) => {
     return result;
 }
 
-const getLoans = async({id}) => {
-    try{
-        const result = await Loaner.getLoans(id);
+const getLoans = async ({
+    id,
+    search = '',
+    status = '',
+    limit = 20,
+    offset = 0
+}) => {
+
+    try {
+
+        const result = await Loaner.getLoans(id, {
+            search,
+            status,
+            limit: Math.min(Number(limit) || 20, 100),
+            offset: Math.max(Number(offset) || 0, 0)
+        });
 
         return result;
+
+    } catch (err) {
+
+        console.error('GET LOANS SERVICE ERROR:', err);
+
+        throw new Error(
+            'Error getting loans in service'
+        );
     }
-    catch(err){
-        throw new Error('Error getting loans in service')
-    }
-}
+};
 
 module.exports = {
     loginLoaner,

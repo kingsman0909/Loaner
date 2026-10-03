@@ -48,19 +48,37 @@ const changePassword = async (req, res) => {
 }
 
 
-const getLoans = async(req, res) => {
-    console.log('getting loans')
-    try{
-        const result = await authService.getLoans(req.user);
+const getLoans = async (req, res) => {
+    console.log('getting loans');
 
-        res.json(result)
-    }
-    catch(err){
-        res.status(401).json({
+    try {
+
+        const {
+            search = '',
+            status = '',
+            limit = 20,
+            offset = 0
+        } = req.query;
+
+        const result = await authService.getLoans({
+            ...req.user,
+            search,
+            status,
+            limit,
+            offset
+        });
+
+        res.status(200).json(result);
+
+    } catch (err) {
+
+        console.error('GET LOANS ERROR:', err);
+
+        res.status(500).json({
             message: err.message
-        })
+        });
     }
-}
+};
 
 module.exports = {
     loginLoaner,
