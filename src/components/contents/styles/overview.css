@@ -1,0 +1,56 @@
+.overview{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding-top: 30px;
+}
+
+.o-top{
+    width: 100%;
+    padding-inline: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.o-card{
+    border: 1px solid gray;
+    padding: 7px 15px;
+    min-width: 200px;
+    min-height: 80px;
+    color: white;
+    border-radius: 5px;
+
+    p{
+        color: cyan;
+    }
+
+    span{
+        margin-top: 5px;
+        margin-left: 10px;
+        font-size: small;
+        color: gray;
+    }
+}
+
+
+
+
+@media (max-width: 700px){
+    .o-top{
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .o-list{
+        width: 100%;
+        padding-inline: 10px;
+    }
+}
+
+@media (max-width: 500px){
+    .o-top{
+        grid-template-columns: repeat(1, 1fr);
+        padding: 0;
+        padding-inline: 5px;
+    }
+}
