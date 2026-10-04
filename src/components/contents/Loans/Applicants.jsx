@@ -1,351 +1,574 @@
-import React, {
-    useCallback,
-    useEffect,
-    useRef,
-    useState
-} from 'react';
-
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import '../styles/loan.css';
 import { API_BASE_URL } from '../../../config';
-import Modal from '../modal/loanModal';
 
 const LIMIT = 20;
 
-const Applicants = () => {
+const STATUSES = ['pending', 'active', 'overdue', 'paid', 'closed'];
 
-    // =====================================================
-    // STATE
-    // =====================================================
+const getLoanId = loan => loan?.id ?? loan?.loan_id;
 
-    const [applications, setApplications] = useState([]);
+const getErrorMessage = (result, fallback) =>
+    result?.message || result?.error || fallback;
+
+const Loans = () => {
+    const [loans, setLoans] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const [loanType, setLoanType] = useState([]);
+    const [loanTypeLoading, setLoanTypeLoading] = useState(false);
 
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('');
-
     const [offset, setOffset] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
     const [total, setTotal] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
 
-    const [showModal, setShowModal] = useState({
-        state: false,
-        data: null
+    const [modal, setModal] = useState({
+        type: '',
+        loan: null
     });
 
-    // =====================================================
-    // REFS
-    // =====================================================
+    const [form, setForm] = useState({
+        member_id: '',
+        loan_type_id: '',
+        principalAmount: '',
+        interest: '',
+        totalDue: '',
+        releaseDate: '',
+        due_date: '',
+        status: 'pending'
+    });
 
+    const [notice, setNotice] = useState({
+        type: '',
+        text: ''
+    });
+
+    const [formError, setFormError] = useState('');
+
+    const requestRef = useRef(false);
+    const requestIdRef = useRef(0);
     const observerRef = useRef(null);
-    const loadingRef = useRef(false);
-    const searchTimerRef = useRef(null);
+    const debounceRef = useRef(null);
 
-    const loanerToken = localStorage.getItem('loaner_token');
+    const token = localStorage.getItem('loaner_token');
 
-    // =====================================================
-    // FETCH APPLICATIONS
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | AUTH HEADERS
+    |--------------------------------------------------------------------------
+    */
 
-    const fetchApplications = useCallback(
-        async ({
-            reset = false,
-            requestOffset = 0
-        } = {}) => {
+    const authHeaders = useCallback((json = false) => {
+        const headers = {
+            Authorization: `Bearer ${localStorage.getItem('loaner_token') || ''}`
+        };
 
-            // Prevent duplicate requests
-            if (loadingRef.current) {
-                return;
+        if (json) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        return headers;
+    }, []);
+
+    /*
+    |--------------------------------------------------------------------------
+    | API REQUEST
+    |--------------------------------------------------------------------------
+    */
+
+    const apiRequest = useCallback(async (path, options = {}) => {
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            ...options,
+            headers: {
+                ...authHeaders(Boolean(options.body)),
+                ...options.headers
             }
+        });
 
-            // Don't load if there is nothing more
-            if (!reset && !hasMore) {
-                return;
-            }
+        const text = await response.text();
 
-            loadingRef.current = true;
+        let result = {};
 
-            if (reset) {
-                setLoading(true);
-            } else {
-                setLoadingMore(true);
-            }
+        try {
+            result = text ? JSON.parse(text) : {};
+        } catch {
+            result = {
+                message: text
+            };
+        }
 
-            try {
+        if (!response.ok) {
+            throw new Error(
+                getErrorMessage(
+                    result,
+                    `Request failed (${response.status})`
+                )
+            );
+        }
 
-                const params = new URLSearchParams();
+        return result;
+    }, [authHeaders]);
 
-                params.set('limit', String(LIMIT));
-                params.set('offset', String(requestOffset));
+    /*
+    |--------------------------------------------------------------------------
+    | NOTICE
+    |--------------------------------------------------------------------------
+    */
 
-                if (search.trim()) {
-                    params.set(
-                        'search',
-                        search.trim()
-                    );
-                }
+    const showNotice = (type, text) => {
+        setNotice({
+            type,
+            text
+        });
+    };
 
-                if (status) {
-                    params.set(
-                        'status',
-                        status
-                    );
-                }
+    /*
+    |--------------------------------------------------------------------------
+    | MODAL
+    |--------------------------------------------------------------------------
+    */
 
-                const url =
-                    `${API_BASE_URL}/loans/applications?${params.toString()}`;
+    const closeModal = () => {
+        setModal({
+            type: '',
+            loan: null
+        });
 
-                console.log(
-                    'Fetching applications:',
-                    url
-                );
+        setForm({
+            member_id: '',
+            loan_type_id: '',
+            principalAmount: '',
+            interest: '',
+            totalDue: '',
+            releaseDate: '',
+            due_date: '',
+            status: 'pending'
+        });
 
-                const response = await fetch(url, {
+        setFormError('');
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAN TYPE HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    const getLoanTypeById = useCallback((id) => {
+        if (!id) return null;
+
+        return loanType.find(
+            item => Number(item.id) === Number(id)
+        ) || null;
+    }, [loanType]);
+
+    const getInterestByLoanType = useCallback((loanTypeId) => {
+        const selectedType = getLoanTypeById(loanTypeId);
+
+        if (!selectedType) {
+            return '';
+        }
+
+        return Number(selectedType.interest || 0);
+    }, [getLoanTypeById]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | CALCULATE TOTAL
+    |--------------------------------------------------------------------------
+    */
+
+    const calculateTotalDue = useCallback((
+        principalAmount,
+        loanTypeId
+    ) => {
+        const principal = Number(principalAmount);
+
+        if (!Number.isFinite(principal) || principal < 0) {
+            return '';
+        }
+
+        const interest = getInterestByLoanType(loanTypeId);
+
+        if (interest === '') {
+            return '';
+        }
+
+        const rate = Number(interest);
+
+        const total = principal + (
+            principal * rate / 100
+        );
+
+        return total.toFixed(2);
+    }, [getInterestByLoanType]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE LOAN
+    |--------------------------------------------------------------------------
+    */
+
+    const normalizeLoan = loan => ({
+        ...loan,
+
+        id: getLoanId(loan),
+
+        member_name:
+            loan.member_name ||
+            loan.full_name ||
+            `${loan.firstname || ''} ${loan.lastname || ''}`.trim() ||
+            'Unknown member',
+
+        interest_rate:
+            loan.interest_rate ??
+            loan.interest ??
+            0,
+
+        total_paid:
+            loan.total_paid ??
+            0,
+
+        remaining_balance:
+            loan.remaining_balance ??
+            Math.max(
+                0,
+                Number(loan.totalDue || 0) -
+                Number(loan.total_paid || 0)
+            )
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | FETCH LOAN TYPES
+    |--------------------------------------------------------------------------
+    */
+
+    const fetchLoanType = useCallback(async () => {
+        setLoanTypeLoading(true);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/loans/loantype`,
+                {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${loanerToken}`
+                        Authorization: `Bearer ${token}`
                     }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-
-                    throw new Error(
-                        `HTTP ${response.status}: ${errorText}`
-                    );
                 }
+            );
 
-                const result = await response.json();
+            const text = await response.text();
 
-                console.log(
-                    'Applications response:',
-                    result
+            let result = {};
+
+            try {
+                result = text ? JSON.parse(text) : {};
+            } catch {
+                result = {
+                    message: text
+                };
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    getErrorMessage(
+                        result,
+                        'Unable to fetch loan types.'
+                    )
                 );
+            }
 
-                // =================================================
-                // YOUR ACTUAL RESPONSE:
-                //
-                // {
-                //    data: [...],
-                //    pagination: {...}
-                // }
-                // =================================================
+            /*
+             * Supports:
+             *
+             * [
+             *   { id: 1, type: "Daily", interest: 5 }
+             * ]
+             *
+             * or
+             *
+             * {
+             *   data: [...]
+             * }
+             */
 
-                const newApplications =
-                    Array.isArray(result.data)
-                        ? result.data
+            const rows = Array.isArray(result)
+                ? result
+                : Array.isArray(result.data)
+                    ? result.data
+                    : Array.isArray(result.loanTypes)
+                        ? result.loanTypes
                         : [];
 
-                const pagination =
-                    result.pagination || {};
+            setLoanType(rows);
 
-                console.log(
-                    'Received:',
-                    newApplications.length,
-                    'applications'
+            console.log('Loan types:', rows);
+
+        } catch (error) {
+            console.error('Loan type error:', error);
+
+            showNotice(
+                'error',
+                error.message || 'Unable to load loan types.'
+            );
+
+            setLoanType([]);
+
+        } finally {
+            setLoanTypeLoading(false);
+        }
+    }, [token]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | FETCH LOANS
+    |--------------------------------------------------------------------------
+    */
+
+    const fetchLoans = useCallback(async ({
+        reset = false,
+        requestOffset = 0
+    } = {}) => {
+
+        if (requestRef.current) {
+            return;
+        }
+
+        const requestId = ++requestIdRef.current;
+
+        requestRef.current = true;
+
+        if (reset) {
+            setLoading(true);
+        } else {
+            setLoadingMore(true);
+        }
+
+        try {
+
+            const params = new URLSearchParams({
+                limit: String(LIMIT),
+                offset: String(requestOffset)
+            });
+
+            if (search.trim()) {
+                params.set(
+                    'search',
+                    search.trim()
                 );
+            }
 
-                console.log(
-                    'Pagination:',
-                    pagination
+            if (status) {
+                params.set(
+                    'status',
+                    status
                 );
+            }
 
-                // =================================================
-                // RESET
-                // =================================================
+            const result = await apiRequest(
+                `/loans?${params}`,
+                {
+                    method: 'GET'
+                }
+            );
+
+            if (requestId !== requestIdRef.current) {
+                return;
+            }
+
+            const payload = result.data ?? result;
+
+            const rows = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload.data)
+                    ? payload.data
+                    : Array.isArray(payload.loans)
+                        ? payload.loans
+                        : [];
+
+            const pagination =
+                result.pagination ||
+                payload.pagination ||
+                {};
+
+            const normalized =
+                rows.map(normalizeLoan);
+
+            setLoans(previous => {
 
                 if (reset) {
-
-                    setApplications(
-                        newApplications
-                    );
-
+                    return normalized;
                 }
 
-                // =================================================
-                // LOAD MORE
-                // =================================================
-
-                else {
-
-                    setApplications(prev => {
-
-                        const existingIds =
-                            new Set(
-                                prev.map(
-                                    item => item.id
-                                )
-                            );
-
-                        const uniqueApplications =
-                            newApplications.filter(
-                                item =>
-                                    !existingIds.has(
-                                        item.id
-                                    )
-                            );
-
-                        return [
-                            ...prev,
-                            ...uniqueApplications
-                        ];
-                    });
-                }
-
-                // =================================================
-                // PAGINATION
-                // =================================================
-
-                const newTotal =
-                    Number(
-                        pagination.total || 0
-                    );
-
-                const newNextOffset =
-                    Number(
-                        pagination.nextOffset ??
-                        (
-                            requestOffset +
-                            newApplications.length
-                        )
-                    );
-
-                const newHasMore =
-                    Boolean(
-                        pagination.hasMore
-                    );
-
-                setTotal(newTotal);
-
-                setOffset(newNextOffset);
-
-                setHasMore(newHasMore);
-
-                console.log(
-                    `Loaded ${newApplications.length} records`
+                const existing = new Set(
+                    previous.map(
+                        item => String(item.id)
+                    )
                 );
 
-                console.log(
-                    `Next offset: ${newNextOffset}`
+                return [
+                    ...previous,
+
+                    ...normalized.filter(
+                        item =>
+                            !existing.has(
+                                String(item.id)
+                            )
+                    )
+                ];
+            });
+
+            const newOffset = Number(
+                pagination.nextOffset ??
+                (
+                    requestOffset +
+                    normalized.length
+                )
+            );
+
+            setOffset(newOffset);
+
+            setTotal(
+                Number(
+                    pagination.total ??
+                    normalized.length
+                )
+            );
+
+            setHasMore(
+                pagination.hasMore ??
+                (
+                    normalized.length === LIMIT
+                )
+            );
+
+        } catch (error) {
+
+            if (requestId === requestIdRef.current) {
+
+                showNotice(
+                    'error',
+                    error.message ||
+                    'Unable to load loans.'
                 );
+            }
 
-                console.log(
-                    `Has more: ${newHasMore}`
-                );
+        } finally {
 
-            } catch (error) {
+            if (requestId === requestIdRef.current) {
 
-                console.error(
-                    'Fetch applications error:',
-                    error
-                );
-
-            } finally {
-
-                loadingRef.current = false;
+                requestRef.current = false;
 
                 setLoading(false);
+
                 setLoadingMore(false);
             }
-        },
-        [
-            search,
-            status,
-            hasMore,
-            loanerToken
-        ]
-    );
+        }
 
-    // =====================================================
-    // INITIAL LOAD
-    // =====================================================
+    }, [
+        apiRequest,
+        search,
+        status
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | INITIAL LOAD
+    |--------------------------------------------------------------------------
+    */
 
     useEffect(() => {
 
-        fetchApplications({
-            reset: true,
-            requestOffset: 0
-        });
+        fetchLoanType();
 
-        // Only run once
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchLoanType]);
 
-    }, []);
-
-    // =====================================================
-    // SEARCH + STATUS CHANGE
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | SEARCH / FILTER DEBOUNCE
+    |--------------------------------------------------------------------------
+    */
 
     useEffect(() => {
 
         clearTimeout(
-            searchTimerRef.current
+            debounceRef.current
         );
 
-        searchTimerRef.current =
+        debounceRef.current =
             setTimeout(() => {
 
-                // Reset pagination
-                setApplications([]);
+                requestIdRef.current++;
+
+                requestRef.current = false;
+
+                setLoans([]);
 
                 setOffset(0);
 
-                setHasMore(true);
+                setHasMore(false);
 
-                // New request
-                fetchApplications({
+                fetchLoans({
                     reset: true,
                     requestOffset: 0
                 });
 
-            }, 400);
+            }, 350);
 
         return () => {
-
             clearTimeout(
-                searchTimerRef.current
+                debounceRef.current
             );
-
         };
 
-    }, [search, status]);
+    }, [
+        search,
+        status,
+        fetchLoans
+    ]);
 
-    // =====================================================
-    // LOAD MORE
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD MORE
+    |--------------------------------------------------------------------------
+    */
 
     const loadMore = useCallback(() => {
 
-        if (loadingRef.current) {
+        if (
+            requestRef.current ||
+            loading ||
+            loadingMore ||
+            !hasMore
+        ) {
             return;
         }
 
-        if (!hasMore) {
-            return;
-        }
-
-        console.log(
-            'Loading more...',
-            'offset:',
-            offset
-        );
-
-        fetchApplications({
+        fetchLoans({
             reset: false,
             requestOffset: offset
         });
 
     }, [
-        offset,
+        fetchLoans,
         hasMore,
-        fetchApplications
+        loading,
+        loadingMore,
+        offset
     ]);
 
-    // =====================================================
-    // INFINITE SCROLL
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | INFINITE SCROLL
+    |--------------------------------------------------------------------------
+    */
 
     useEffect(() => {
 
@@ -360,71 +583,544 @@ const Applicants = () => {
             new IntersectionObserver(
                 entries => {
 
-                    const entry =
-                        entries[0];
-
                     if (
-                        entry.isIntersecting &&
-                        hasMore &&
-                        !loadingRef.current
+                        entries[0]?.isIntersecting
                     ) {
-
                         loadMore();
                     }
+
                 },
                 {
-                    root: null,
-
-                    // Start loading before reaching bottom
-                    rootMargin: '300px',
-
+                    rootMargin: '250px',
                     threshold: 0
                 }
             );
 
         observer.observe(target);
 
-        return () => {
-
+        return () =>
             observer.disconnect();
 
+    }, [loadMore]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | REFRESH
+    |--------------------------------------------------------------------------
+    */
+
+    const refreshLoans = async () => {
+
+        requestIdRef.current++;
+
+        requestRef.current = false;
+
+        setLoans([]);
+
+        setOffset(0);
+
+        setHasMore(false);
+
+        await fetchLoans({
+            reset: true,
+            requestOffset: 0
+        });
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE
+    |--------------------------------------------------------------------------
+    */
+
+    const openCreate = () => {
+
+        setForm({
+            member_id: '',
+            loan_type_id: '',
+            principalAmount: '',
+            interest: '',
+            totalDue: '',
+            releaseDate: '',
+            due_date: '',
+            status: 'pending'
+        });
+
+        setFormError('');
+
+        setModal({
+            type: 'create',
+            loan: null
+        });
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | VIEW
+    |--------------------------------------------------------------------------
+    */
+
+    const openView = loan => {
+
+        setFormError('');
+
+        setModal({
+            type: 'view',
+            loan
+        });
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | DATE
+    |--------------------------------------------------------------------------
+    */
+
+    const dateInput = value => {
+
+        if (!value) {
+            return '';
+        }
+
+        return String(value)
+            .split('T')[0]
+            .slice(0, 10);
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | EDIT
+    |--------------------------------------------------------------------------
+    */
+
+    const openEdit = loan => {
+
+        const selectedLoanType =
+            getLoanTypeById(
+                loan.loan_type_id
+            );
+
+        const selectedInterest =
+            selectedLoanType
+                ? Number(selectedLoanType.interest || 0)
+                : Number(
+                    loan.interest_rate ??
+                    loan.interest ??
+                    0
+                );
+
+        const principal =
+            Number(
+                loan.principalAmount || 0
+            );
+
+        const calculatedTotal =
+            selectedLoanType
+                ? calculateTotalDue(
+                    principal,
+                    loan.loan_type_id
+                )
+                : loan.totalDue ?? '';
+
+        setForm({
+
+            member_id:
+                loan.member_id ?? '',
+
+            loan_type_id:
+                loan.loan_type_id ?? '',
+
+            principalAmount:
+                loan.principalAmount ?? '',
+
+            interest:
+                selectedInterest,
+
+            totalDue:
+                calculatedTotal,
+
+            releaseDate:
+                dateInput(
+                    loan.releaseDate ||
+                    loan.created_at
+                ),
+
+            due_date:
+                dateInput(
+                    loan.due_date
+                ),
+
+            status:
+                loan.status ||
+                'pending'
+        });
+
+        setFormError('');
+
+        setModal({
+            type: 'edit',
+            loan
+        });
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORM UPDATE
+    |--------------------------------------------------------------------------
+    */
+
+    const updateForm = event => {
+
+        const {
+            name,
+            value
+        } = event.target;
+
+        setForm(previous => {
+
+            const next = {
+                ...previous,
+                [name]: value
+            };
+
+            /*
+             * LOAN TYPE CHANGED
+             *
+             * Get interest directly from:
+             *
+             * loan_type.id
+             *
+             * NOT:
+             *
+             * loanType[value - 1]
+             */
+
+            if (name === 'loan_type_id') {
+
+                const selectedType =
+                    getLoanTypeById(value);
+
+                const selectedInterest =
+                    selectedType
+                        ? Number(
+                            selectedType.interest || 0
+                        )
+                        : '';
+
+                next.interest =
+                    selectedInterest;
+
+                next.totalDue =
+                    calculateTotalDue(
+                        next.principalAmount,
+                        value
+                    );
+            }
+
+            /*
+             * PRINCIPAL CHANGED
+             */
+
+            if (name === 'principalAmount') {
+
+                next.totalDue =
+                    calculateTotalDue(
+                        value,
+                        next.loan_type_id
+                    );
+            }
+
+            /*
+             * NEVER allow manual interest
+             * changes because interest comes
+             * from loan_type.
+             */
+
+            if (name === 'interest') {
+
+                const selectedInterest =
+                    getInterestByLoanType(
+                        next.loan_type_id
+                    );
+
+                next.interest =
+                    selectedInterest;
+
+                next.totalDue =
+                    calculateTotalDue(
+                        next.principalAmount,
+                        next.loan_type_id
+                    );
+            }
+
+            return next;
+        });
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | SAVE LOAN
+    |--------------------------------------------------------------------------
+    */
+
+    const saveLoan = async event => {
+
+        event.preventDefault();
+
+        setFormError('');
+
+        const principal =
+            Number(
+                form.principalAmount
+            );
+
+        const memberId =
+            Number(
+                form.member_id
+            );
+
+        const loanTypeId =
+            Number(
+                form.loan_type_id
+            );
+
+        /*
+         * GET THE REAL LOAN TYPE
+         */
+
+        const selectedLoanType =
+            getLoanTypeById(
+                loanTypeId
+            );
+
+        if (
+            !Number.isInteger(memberId) ||
+            memberId <= 0
+        ) {
+
+            setFormError(
+                'Enter a valid member ID.'
+            );
+
+            return;
+        }
+
+        if (
+            !Number.isInteger(loanTypeId) ||
+            loanTypeId <= 0
+        ) {
+
+            setFormError(
+                'Please select a valid loan type.'
+            );
+
+            return;
+        }
+
+        if (!selectedLoanType) {
+
+            setFormError(
+                'Selected loan type does not exist.'
+            );
+
+            return;
+        }
+
+        if (
+            !Number.isFinite(principal) ||
+            principal <= 0
+        ) {
+
+            setFormError(
+                'Principal must be greater than zero.'
+            );
+
+            return;
+        }
+
+        /*
+         * INTEREST MUST COME FROM DATABASE
+         */
+
+        const interest =
+            Number(
+                selectedLoanType.interest || 0
+            );
+
+        const calculatedTotal =
+            Number(
+                (
+                    principal +
+                    (
+                        principal *
+                        interest /
+                        100
+                    )
+                ).toFixed(2)
+            );
+
+        if (!form.due_date) {
+
+            setFormError(
+                'Please select a due date.'
+            );
+
+            return;
+        }
+
+        const payload = {
+
+            member_id:
+                memberId,
+
+            loan_type_id:
+                loanTypeId,
+
+            principalAmount:
+                principal,
+
+            /*
+             * Derived from loan_type.
+             */
+            interest:
+                interest,
+
+            /*
+             * Derived from principal + loan type interest.
+             */
+            totalDue:
+                calculatedTotal,
+
+            releaseDate:
+                form.releaseDate ||
+                null,
+
+            due_date:
+                form.due_date,
+
+            status:
+                modal.type === 'edit'
+                    ? form.status
+                    : 'active'
         };
 
-    }, [
-        loadMore,
-        hasMore
-    ]);
+        console.log(
+            'Saving loan:',
+            payload
+        );
 
-    // =====================================================
-    // MODAL
-    // =====================================================
+        setSaving(true);
 
-    const openModal = loan => {
+        try {
 
-        setShowModal({
-            state: true,
-            data: loan
-        });
+            const isEdit =
+                modal.type === 'edit';
 
+            const path =
+                isEdit
+                    ? `/loans/${encodeURIComponent(
+                        getLoanId(modal.loan)
+                    )}`
+                    : '/loans';
+
+            await apiRequest(
+                path,
+                {
+                    method:
+                        isEdit
+                            ? 'PUT'
+                            : 'POST',
+
+                    body:
+                        JSON.stringify(
+                            payload
+                        )
+                }
+            );
+
+            closeModal();
+
+            showNotice(
+                'success',
+                isEdit
+                    ? 'Loan updated successfully.'
+                    : 'Loan created successfully.'
+            );
+
+            await refreshLoans();
+
+        } catch (error) {
+
+            setFormError(
+                error.message ||
+                'Unable to save the loan.'
+            );
+
+        } finally {
+
+            setSaving(false);
+        }
     };
 
-    const closeModal = () => {
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE
+    |--------------------------------------------------------------------------
+    */
 
-        setShowModal({
-            state: false,
-            data: null
-        });
+    const deleteLoan = async () => {
 
+        const id =
+            getLoanId(
+                modal.loan
+            );
+
+        if (!id) {
+            return;
+        }
+
+        setDeleting(true);
+
+        try {
+
+            await apiRequest(
+                `/loans/${encodeURIComponent(id)}`,
+                {
+                    method: 'DELETE'
+                }
+            );
+
+            closeModal();
+
+            showNotice(
+                'success',
+                'Loan deleted successfully.'
+            );
+
+            await refreshLoans();
+
+        } catch (error) {
+
+            setFormError(
+                error.message ||
+                'Unable to delete the loan.'
+            );
+
+        } finally {
+
+            setDeleting(false);
+        }
     };
 
-    // =====================================================
-    // FORMAT MONEY
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | FORMATTERS
+    |--------------------------------------------------------------------------
+    */
 
-    const formatMoney = amount => {
-
-        return Number(
-            amount || 0
+    const money = value =>
+        Number(
+            value || 0
         ).toLocaleString(
             'en-PH',
             {
@@ -433,24 +1129,15 @@ const Applicants = () => {
             }
         );
 
-    };
+    const formatDate = value => {
 
-    // =====================================================
-    // FORMAT DATE
-    // =====================================================
-
-    const formatDate = date => {
-
-        if (!date) {
-            return '-';
+        if (!value) {
+            return '—';
         }
-
-        const dateOnly =
-            String(date).split('T')[0];
 
         const parsed =
             new Date(
-                `${dateOnly}T00:00:00`
+                `${dateInput(value)}T00:00:00`
             );
 
         if (
@@ -458,7 +1145,7 @@ const Applicants = () => {
                 parsed.getTime()
             )
         ) {
-            return date;
+            return '—';
         }
 
         return parsed.toLocaleDateString(
@@ -471,95 +1158,126 @@ const Applicants = () => {
         );
     };
 
-    // =====================================================
-    // STATUS LABEL
-    // =====================================================
+    const label = value =>
+        value
+            ? value
+                .charAt(0)
+                .toUpperCase() +
+                value.slice(1)
+            : 'Unknown';
 
-    const getStatusLabel = value => {
+    /*
+    |--------------------------------------------------------------------------
+    | SELECTED LOAN TYPE
+    |--------------------------------------------------------------------------
+    */
 
-        const labels = {
-            active: 'Active',
-            pending: 'Pending',
-            paid: 'Paid',
-            closed: 'Closed',
-            overdue: 'Overdue'
-        };
-
-        return (
-            labels[value] ||
-            value ||
-            'Unknown'
+    const selectedLoanType =
+        getLoanTypeById(
+            form.loan_type_id
         );
-    };
 
-    // =====================================================
-    // RENDER
-    // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | UI
+    |--------------------------------------------------------------------------
+    */
 
     return (
+        <main className="loans-page">
 
-        <div className="loans-page">
+            {/* HEADER */}
 
-            {/* =================================================
-                MODAL
-            ================================================= */}
-
-            {showModal.state &&
-                showModal.data && (
-
-                    <Modal
-                        loan={showModal.data}
-                        setShowModal={closeModal}
-                    />
-
-                )
-            }
-
-            {/* =================================================
-                HEADER
-            ================================================= */}
-
-            <div className="loans-header">
+            <header className="loans-header">
 
                 <div>
 
+                    <span className="loans-eyebrow">
+                        LOANER WORKSPACE
+                    </span>
+
                     <h1>
-                        Loan Applications
+                        Loan Management
                     </h1>
 
                     <p>
-                        Review and manage loan applications.
+                        Manage loan records, balances,
+                        and repayment status.
                     </p>
 
                 </div>
 
-                <div className="loan-count">
+                <div className="loans-header-actions">
 
-                    {total.toLocaleString()}
-                    {' '}
-                    Applications
+                    <div className="loan-count">
+
+                        <span>
+                            Total records
+                        </span>
+
+                        <strong>
+                            {total.toLocaleString()}
+                        </strong>
+
+                    </div>
+
+                    <button
+                        className="loan-btn loan-btn-primary"
+                        onClick={openCreate}
+                    >
+                        <span>＋</span>
+                        New Loan
+                    </button>
 
                 </div>
 
-            </div>
+            </header>
 
-            {/* =================================================
-                TOOLBAR
-            ================================================= */}
+            {/* NOTICE */}
 
-            <div className="loan-toolbar">
+            {notice.text && (
 
-                {/* SEARCH */}
+                <div
+                    className={`loan-notice ${notice.type}`}
+                    role="status"
+                >
 
-                <div className="loan-search">
+                    <span>
+                        {notice.text}
+                    </span>
+
+                    <button
+                        onClick={() =>
+                            setNotice({
+                                type: '',
+                                text: ''
+                            })
+                        }
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+            )}
+
+            {/* TOOLBAR */}
+
+            <section className="loan-toolbar">
+
+                <label className="loan-search">
+
+                    <span aria-hidden="true">
+                        ⌕
+                    </span>
 
                     <input
-                        type="text"
-                        placeholder="Search member..."
+                        type="search"
+                        placeholder="Search member, contact, or loan ID..."
                         value={search}
-                        onChange={e =>
+                        onChange={event =>
                             setSearch(
-                                e.target.value
+                                event.target.value
                             )
                         }
                     />
@@ -568,6 +1286,7 @@ const Applicants = () => {
 
                         <button
                             type="button"
+                            aria-label="Clear search"
                             onClick={() =>
                                 setSearch('')
                             }
@@ -577,317 +1296,1125 @@ const Applicants = () => {
 
                     )}
 
-                </div>
-
-                {/* STATUS */}
+                </label>
 
                 <select
+                    className="loan-filter"
                     value={status}
-                    onChange={e =>
+                    onChange={event =>
                         setStatus(
-                            e.target.value
+                            event.target.value
                         )
                     }
+                    aria-label="Filter loans by status"
                 >
 
                     <option value="">
-                        All Status
+                        All statuses
                     </option>
 
-                    <option value="active">
-                        Active
-                    </option>
+                    {STATUSES.map(item => (
 
-                    <option value="pending">
-                        Pending
-                    </option>
+                        <option
+                            key={item}
+                            value={item}
+                        >
+                            {label(item)}
+                        </option>
 
-                    <option value="paid">
-                        Paid
-                    </option>
-
-                    <option value="closed">
-                        Closed
-                    </option>
-
-                    <option value="overdue">
-                        Overdue
-                    </option>
+                    ))}
 
                 </select>
 
-            </div>
+                <button
+                    className="loan-btn loan-btn-secondary"
+                    onClick={refreshLoans}
+                    disabled={loading}
+                >
+                    ↻ Refresh
+                </button>
 
-            {/* =================================================
-                TABLE
-            ================================================= */}
+            </section>
 
-            <div className="loan-table-wrapper">
+            {/* TABLE */}
 
-                {/* INITIAL LOADING */}
+            <section className="loan-table-card">
 
-                {loading ? (
+                <div className="loan-table-heading">
 
-                    <div className="loan-empty">
+                    <div>
 
-                        <span>
-                            Loading applications...
-                        </span>
-
-                    </div>
-
-                ) : applications.length === 0 ? (
-
-                    /* EMPTY */
-
-                    <div className="loan-empty">
-
-                        <h3>
-                            No Applications
-                        </h3>
+                        <h2>
+                            All Loans
+                        </h2>
 
                         <p>
-
-                            {search
-                                ? `No applications found for "${search}".`
-                                : status
-                                    ? `No ${getStatusLabel(status).toLowerCase()} applications found.`
-                                    : 'There are no loan applications.'
-                            }
-
+                            Review each loan and its
+                            current balance.
                         </p>
 
                     </div>
 
-                ) : (
+                    <span className="loan-result-count">
+                        {loans.length} loaded
+                    </span>
 
-                    /* TABLE */
+                </div>
 
-                    <table className="loan-table">
+                <div className="loan-table-scroll">
 
-                        <thead>
+                    {loading &&
+                    loans.length === 0 ? (
 
-                            <tr>
+                        <div className="loan-state">
 
-                                <th>
-                                    Member
-                                </th>
+                            <span className="loan-spinner" />
 
-                                <th>
-                                    Loan Type
-                                </th>
+                            <p>
+                                Loading loans...
+                            </p>
 
-                                <th>
-                                    Principal
-                                </th>
+                        </div>
 
-                                <th>
-                                    Interest
-                                </th>
+                    ) : loans.length === 0 ? (
 
-                                <th>
-                                    Total Due
-                                </th>
+                        <div className="loan-state">
 
-                                <th>
-                                    Date
-                                </th>
+                            <div className="loan-state-icon">
+                                ⌕
+                            </div>
 
-                                <th>
-                                    Status
-                                </th>
+                            <h3>
+                                No loans found
+                            </h3>
 
-                                <th>
-                                    Action
-                                </th>
+                            <p>
+                                {search || status
+                                    ? 'Try changing your search or status filter.'
+                                    : 'Create your first loan using the New Loan button.'
+                                }
+                            </p>
 
-                            </tr>
+                            {!search &&
+                            !status && (
 
-                        </thead>
+                                <button
+                                    className="loan-btn loan-btn-primary"
+                                    onClick={openCreate}
+                                >
+                                    Create a loan
+                                </button>
 
-                        <tbody>
+                            )}
 
-                            {applications.map(
-                                loan => (
+                        </div>
+
+                    ) : (
+
+                        <table className="loan-table">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>
+                                        Loan / Member
+                                    </th>
+
+                                    <th>
+                                        Loan Type
+                                    </th>
+
+                                    <th>
+                                        Principal
+                                    </th>
+
+                                    <th>
+                                        Interest
+                                    </th>
+
+                                    <th>
+                                        Total Due
+                                    </th>
+
+                                    <th>
+                                        Remaining
+                                    </th>
+
+                                    <th>
+                                        Due Date
+                                    </th>
+
+                                    <th>
+                                        Status
+                                    </th>
+
+                                    <th>
+                                        Actions
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {loans.map(loan => (
 
                                     <tr
                                         key={loan.id}
                                     >
 
-                                        {/* MEMBER */}
-
                                         <td>
 
-                                            <div className="member-name">
+                                            <div className="loan-member-cell">
 
-                                                {
-                                                    loan.member_name ||
-                                                    `${loan.firstname || ''} ${loan.lastname || ''}`.trim() ||
-                                                    'Unknown Member'
-                                                }
+                                                <span className="loan-avatar">
+
+                                                    {(loan.member_name || 'M')
+                                                        .trim()
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+
+                                                </span>
+
+                                                <div>
+
+                                                    <strong>
+                                                        {loan.member_name}
+                                                    </strong>
+
+                                                    <span>
+
+                                                        Loan #{loan.id}
+
+                                                        {loan.member_contact
+                                                            ? ` · ${loan.member_contact}`
+                                                            : ''
+                                                        }
+
+                                                    </span>
+
+                                                </div>
 
                                             </div>
 
                                         </td>
 
-                                        {/* LOAN TYPE */}
-
                                         <td>
-
-                                            {
-                                                loan.loan_type ||
-                                                loan.type ||
-                                                'Loan'
-                                            }
-
+                                            {loan.loan_type || '—'}
                                         </td>
 
-                                        {/* PRINCIPAL */}
-
                                         <td>
-
-                                            ₱
-                                            {formatMoney(
+                                            ₱{money(
                                                 loan.principalAmount
                                             )}
-
                                         </td>
 
-                                        {/* INTEREST */}
-
                                         <td>
-
-                                            {
+                                            {Number(
                                                 loan.interest_rate || 0
-                                            }%
-
+                                            )}%
                                         </td>
 
-                                        {/* TOTAL */}
-
-                                        <td>
-
-                                            ₱
-                                            {formatMoney(
+                                        <td className="loan-money">
+                                            ₱{money(
                                                 loan.totalDue
                                             )}
-
                                         </td>
 
-                                        {/* DATE */}
+                                        <td className="loan-balance">
+                                            ₱{money(
+                                                loan.remaining_balance
+                                            )}
+                                        </td>
 
                                         <td>
-
                                             {formatDate(
-                                                loan.releaseDate ||
-                                                loan.created_at ||
-                                                loan.createdAt
+                                                loan.due_date
                                             )}
-
                                         </td>
-
-                                        {/* STATUS */}
 
                                         <td>
 
                                             <span
-                                                className={
-                                                    `loan-status ${
-                                                        loan.status ||
-                                                        'pending'
-                                                    }`
-                                                }
+                                                className={`loan-status ${String(
+                                                    loan.status ||
+                                                    'pending'
+                                                ).toLowerCase()}`}
                                             >
-
-                                                {
-                                                    getStatusLabel(
-                                                        loan.status
-                                                    )
-                                                }
-
+                                                {label(
+                                                    loan.status
+                                                )}
                                             </span>
 
                                         </td>
 
-                                        {/* ACTION */}
-
                                         <td>
 
-                                            <button
-                                                className="loan-action"
-                                                onClick={() =>
-                                                    openModal(
-                                                        loan
-                                                    )
-                                                }
-                                            >
-                                                View
-                                            </button>
+                                            <div className="loan-row-actions">
+
+                                                <button
+                                                    className="loan-icon-btn"
+                                                    title="View loan"
+                                                    aria-label="View loan"
+                                                    onClick={() =>
+                                                        openView(
+                                                            loan
+                                                        )
+                                                    }
+                                                >
+                                                    ↗
+                                                </button>
+
+                                                <button
+                                                    className="loan-icon-btn"
+                                                    title="Edit loan"
+                                                    aria-label="Edit loan"
+                                                    onClick={() =>
+                                                        openEdit(
+                                                            loan
+                                                        )
+                                                    }
+                                                >
+                                                    ✎
+                                                </button>
+
+                                                <button
+                                                    className="loan-icon-btn danger"
+                                                    title="Delete loan"
+                                                    aria-label="Delete loan"
+                                                    onClick={() => {
+
+                                                        setFormError('');
+
+                                                        setModal({
+                                                            type: 'delete',
+                                                            loan
+                                                        });
+
+                                                    }}
+                                                >
+                                                    ⌫
+                                                </button>
+
+                                            </div>
 
                                         </td>
 
                                     </tr>
 
-                                )
-                            )}
+                                ))}
 
-                        </tbody>
+                            </tbody>
 
-                    </table>
+                        </table>
 
-                )}
+                    )}
 
-                {/* =================================================
-                    INFINITE SCROLL TRIGGER
-                ================================================= */}
-
-                <div
-                    ref={observerRef}
-                    style={{
-                        height: '20px'
-                    }}
-                />
-
-                {/* =================================================
-                    LOADING MORE
-                ================================================= */}
+                </div>
 
                 {loadingMore && (
 
-                    <div className="loan-empty">
+                    <div className="loan-load-more">
+                        Loading more loans…
+                    </div>
 
-                        <span>
-                            Loading more applications...
-                        </span>
+                )}
+
+                <div
+                    className="loan-scroll-trigger"
+                    ref={observerRef}
+                />
+
+                {!loading &&
+                loans.length > 0 &&
+                hasMore && (
+
+                    <div className="loan-load-more">
+
+                        <button
+                            className="loan-btn loan-btn-secondary"
+                            disabled={loadingMore}
+                            onClick={loadMore}
+                        >
+                            {loadingMore
+                                ? 'Loading…'
+                                : 'Load more'
+                            }
+                        </button>
 
                     </div>
 
                 )}
 
-                {/* =================================================
-                    END
-                ================================================= */}
-
                 {!loading &&
-                    !loadingMore &&
-                    !hasMore &&
-                    applications.length > 0 && (
+                loans.length > 0 &&
+                !hasMore && (
 
-                        <div className="loan-empty">
+                    <div className="loan-end-message">
 
-                            <p>
-                                You've reached the end of the applications.
-                            </p>
+                        End of results ·{' '}
+                        {loans.length}{' '}
+                        loan(s) loaded
+
+                    </div>
+
+                )}
+
+            </section>
+
+            {/* =========================================================
+                CREATE / EDIT MODAL
+            ========================================================= */}
+
+            {(modal.type === 'create' ||
+            modal.type === 'edit') && (
+
+                <div
+                    className="loan-modal-backdrop"
+                    onMouseDown={event => {
+
+                        if (
+                            event.target ===
+                            event.currentTarget &&
+                            !saving
+                        ) {
+                            closeModal();
+                        }
+
+                    }}
+                >
+
+                    <section
+                        className="loan-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="loan-form-title"
+                    >
+
+                        <header className="loan-modal-header">
+
+                            <div>
+
+                                <span className="loans-eyebrow">
+
+                                    {modal.type === 'edit'
+                                        ? 'UPDATE RECORD'
+                                        : 'NEW RECORD'
+                                    }
+
+                                </span>
+
+                                <h2 id="loan-form-title">
+
+                                    {modal.type === 'edit'
+                                        ? 'Edit Loan'
+                                        : 'Create Loan'
+                                    }
+
+                                </h2>
+
+                                <p>
+                                    Enter the loan information below.
+                                </p>
+
+                            </div>
+
+                            <button
+                                className="loan-modal-close"
+                                onClick={closeModal}
+                                disabled={saving}
+                                aria-label="Close modal"
+                            >
+                                ×
+                            </button>
+
+                        </header>
+
+                        <form
+                            onSubmit={saveLoan}
+                        >
+
+                            <div className="loan-modal-body">
+
+                                {formError && (
+
+                                    <div className="loan-form-error">
+                                        {formError}
+                                    </div>
+
+                                )}
+
+                                <div className="loan-form-grid">
+
+                                    {/* MEMBER */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Member ID *
+                                        </span>
+
+                                        <input
+                                            name="member_id"
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            value={form.member_id}
+                                            onChange={updateForm}
+                                            required
+                                        />
+
+                                    </label>
+
+                                    {/* LOAN TYPE */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Loan Type *
+                                        </span>
+
+                                        <select
+                                            name="loan_type_id"
+                                            value={form.loan_type_id}
+                                            onChange={updateForm}
+                                            required
+                                            disabled={
+                                                loanTypeLoading ||
+                                                saving
+                                            }
+                                        >
+
+                                            <option value="">
+                                                {loanTypeLoading
+                                                    ? 'Loading loan types...'
+                                                    : 'Select loan type'
+                                                }
+                                            </option>
+
+                                            {loanType.map(type => (
+
+                                                <option
+                                                    key={type.id}
+                                                    value={type.id}
+                                                >
+
+                                                    {type.type}
+                                                    {' — '}
+                                                    {Number(
+                                                        type.interest || 0
+                                                    )}%
+
+                                                </option>
+
+                                            ))}
+
+                                        </select>
+
+                                        {selectedLoanType && (
+
+                                            <small>
+
+                                                Interest:
+                                                {' '}
+                                                <strong>
+                                                    {Number(
+                                                        selectedLoanType.interest || 0
+                                                    )}%
+                                                </strong>
+
+                                            </small>
+
+                                        )}
+
+                                    </label>
+
+                                    {/* PRINCIPAL */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Principal Amount (₱) *
+                                        </span>
+
+                                        <input
+                                            name="principalAmount"
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            value={
+                                                form.principalAmount
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
+                                            required
+                                        />
+
+                                    </label>
+
+                                    {/* INTEREST */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Interest (%)
+                                        </span>
+
+                                        <input
+                                            name="interest"
+                                            type="number"
+                                            value={
+                                                form.interest
+                                            }
+                                            readOnly
+                                            tabIndex="-1"
+                                        />
+
+                                        <small>
+                                            Automatically determined by loan type.
+                                        </small>
+
+                                    </label>
+
+                                    {/* TOTAL */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Total Due (₱)
+                                        </span>
+
+                                        <input
+                                            type="number"
+                                            value={
+                                                form.totalDue
+                                            }
+                                            readOnly
+                                            tabIndex="-1"
+                                        />
+
+                                        <small>
+                                            Principal + loan type interest.
+                                        </small>
+
+                                    </label>
+
+                                    {/* STATUS */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Status *
+                                        </span>
+
+                                        <select
+                                            name="status"
+                                            value={
+                                                form.status
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
+                                            required
+                                        >
+
+                                            {STATUSES.map(item => (
+
+                                                <option
+                                                    key={item}
+                                                    value={item}
+                                                >
+                                                    {label(item)}
+                                                </option>
+
+                                            ))}
+
+                                        </select>
+
+                                    </label>
+
+                                    {/* RELEASE DATE */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Release Date
+                                        </span>
+
+                                        <input
+                                            name="releaseDate"
+                                            type="date"
+                                            value={
+                                                form.releaseDate
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
+                                        />
+
+                                    </label>
+
+                                    {/* DUE DATE */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Due Date *
+                                        </span>
+
+                                        <input
+                                            name="due_date"
+                                            type="date"
+                                            value={
+                                                form.due_date
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
+                                            required
+                                        />
+
+                                    </label>
+
+                                </div>
+
+                                {/* SELECTED TYPE SUMMARY */}
+
+                                {selectedLoanType && (
+
+                                    <div className="loan-form-hint">
+
+                                        <strong>
+                                            {selectedLoanType.type}
+                                        </strong>
+
+                                        {' '}loan selected.
+
+                                        Interest rate is{' '}
+
+                                        <strong>
+                                            {Number(
+                                                selectedLoanType.interest || 0
+                                            )}%
+                                        </strong>
+
+                                        .
+
+                                        {form.principalAmount && (
+
+                                            <>
+                                                {' '}
+                                                For ₱
+                                                {money(
+                                                    form.principalAmount
+                                                )},
+                                                total due is{' '}
+
+                                                <strong>
+                                                    ₱
+                                                    {money(
+                                                        form.totalDue
+                                                    )}
+                                                </strong>.
+                                            </>
+
+                                        )}
+
+                                    </div>
+
+                                )}
+
+                            </div>
+
+                            <footer className="loan-modal-footer">
+
+                                <button
+                                    type="button"
+                                    className="loan-btn loan-btn-secondary"
+                                    onClick={closeModal}
+                                    disabled={saving}
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    className="loan-btn loan-btn-primary"
+                                    disabled={
+                                        saving ||
+                                        loanTypeLoading ||
+                                        loanType.length === 0
+                                    }
+                                >
+
+                                    {saving
+                                        ? 'Saving…'
+                                        : modal.type === 'edit'
+                                            ? 'Save Changes'
+                                            : 'Create Loan'
+                                    }
+
+                                </button>
+
+                            </footer>
+
+                        </form>
+
+                    </section>
+
+                </div>
+
+            )}
+
+            {/* =========================================================
+                VIEW MODAL
+            ========================================================= */}
+
+            {modal.type === 'view' &&
+            modal.loan && (
+
+                <div
+                    className="loan-modal-backdrop"
+                    onMouseDown={event => {
+
+                        if (
+                            event.target ===
+                            event.currentTarget
+                        ) {
+                            closeModal();
+                        }
+
+                    }}
+                >
+
+                    <section
+                        className="loan-modal loan-detail-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="loan-detail-title"
+                    >
+
+                        <header className="loan-modal-header">
+
+                            <div>
+
+                                <span className="loans-eyebrow">
+
+                                    LOAN #
+                                    {getLoanId(
+                                        modal.loan
+                                    )}
+
+                                </span>
+
+                                <h2 id="loan-detail-title">
+                                    Loan Details
+                                </h2>
+
+                                <p>
+                                    {modal.loan.member_name}
+                                </p>
+
+                            </div>
+
+                            <button
+                                className="loan-modal-close"
+                                onClick={closeModal}
+                                aria-label="Close modal"
+                            >
+                                ×
+                            </button>
+
+                        </header>
+
+                        <div className="loan-modal-body">
+
+                            <div className="loan-detail-hero">
+
+                                <span>
+                                    Remaining Balance
+                                </span>
+
+                                <strong>
+                                    ₱
+                                    {money(
+                                        modal.loan.remaining_balance
+                                    )}
+                                </strong>
+
+                                <span
+                                    className={`loan-status ${String(
+                                        modal.loan.status ||
+                                        'pending'
+                                    ).toLowerCase()}`}
+                                >
+                                    {label(
+                                        modal.loan.status
+                                    )}
+                                </span>
+
+                            </div>
+
+                            <div className="loan-detail-grid">
+
+                                <div>
+                                    <span>
+                                        Member
+                                    </span>
+
+                                    <strong>
+                                        {modal.loan.member_name}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Member ID
+                                    </span>
+
+                                    <strong>
+                                        {modal.loan.member_id ?? '—'}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Contact
+                                    </span>
+
+                                    <strong>
+                                        {modal.loan.member_contact || '—'}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Loan Type
+                                    </span>
+
+                                    <strong>
+                                        {modal.loan.loan_type || '—'}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Loan Type ID
+                                    </span>
+
+                                    <strong>
+                                        {modal.loan.loan_type_id ?? '—'}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Principal
+                                    </span>
+
+                                    <strong>
+                                        ₱
+                                        {money(
+                                            modal.loan.principalAmount
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Interest Rate
+                                    </span>
+
+                                    <strong>
+                                        {Number(
+                                            modal.loan.interest_rate || 0
+                                        )}%
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Total Due
+                                    </span>
+
+                                    <strong>
+                                        ₱
+                                        {money(
+                                            modal.loan.totalDue
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Total Paid
+                                    </span>
+
+                                    <strong>
+                                        ₱
+                                        {money(
+                                            modal.loan.total_paid
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Release Date
+                                    </span>
+
+                                    <strong>
+                                        {formatDate(
+                                            modal.loan.releaseDate ||
+                                            modal.loan.created_at
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Due Date
+                                    </span>
+
+                                    <strong>
+                                        {formatDate(
+                                            modal.loan.due_date
+                                        )}
+                                    </strong>
+                                </div>
+
+                            </div>
 
                         </div>
 
-                    )
-                }
+                        <footer className="loan-modal-footer">
 
-            </div>
+                            <button
+                                className="loan-btn loan-btn-secondary"
+                                onClick={closeModal}
+                            >
+                                Close
+                            </button>
 
-        </div>
+                            <button
+                                className="loan-btn loan-btn-primary"
+                                onClick={() =>
+                                    openEdit(
+                                        modal.loan
+                                    )
+                                }
+                            >
+                                Edit Loan
+                            </button>
+
+                        </footer>
+
+                    </section>
+
+                </div>
+
+            )}
+
+            {/* =========================================================
+                DELETE MODAL
+            ========================================================= */}
+
+            {modal.type === 'delete' &&
+            modal.loan && (
+
+                <div
+                    className="loan-modal-backdrop"
+                    onMouseDown={event => {
+
+                        if (
+                            event.target ===
+                            event.currentTarget &&
+                            !deleting
+                        ) {
+                            closeModal();
+                        }
+
+                    }}
+                >
+
+                    <section
+                        className="loan-modal loan-confirm-modal"
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="loan-delete-title"
+                    >
+
+                        <div className="loan-delete-icon">
+                            !
+                        </div>
+
+                        <h2 id="loan-delete-title">
+                            Delete this loan?
+                        </h2>
+
+                        <p>
+
+                            Loan #
+                            {getLoanId(
+                                modal.loan
+                            )}
+
+                            {' '}for{' '}
+
+                            <strong>
+                                {modal.loan.member_name}
+                            </strong>
+
+                            {' '}will be deleted.
+
+                            This action may be blocked
+                            if payment records depend
+                            on it.
+
+                        </p>
+
+                        {formError && (
+
+                            <div className="loan-form-error">
+                                {formError}
+                            </div>
+
+                        )}
+
+                        <footer className="loan-modal-footer">
+
+                            <button
+                                className="loan-btn loan-btn-secondary"
+                                onClick={closeModal}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                className="loan-btn loan-btn-danger"
+                                onClick={deleteLoan}
+                                disabled={deleting}
+                            >
+                                {deleting
+                                    ? 'Deleting…'
+                                    : 'Delete Loan'
+                                }
+                            </button>
+
+                        </footer>
+
+                    </section>
+
+                </div>
+
+            )}
+
+        </main>
     );
 };
 
-export default Applicants;
+export default Loans;

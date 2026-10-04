@@ -17,11 +17,13 @@ const verifyToken = (req, res, next) => {
         
         if(decode){
             req.user = user;
+            console.log('valid')
             next();
         }
+        console.log('error middleware')
 
     } catch (error) {
-
+        console.log('error middleware')
         return res.status(401).json({
             message: "Invalid token"
         });

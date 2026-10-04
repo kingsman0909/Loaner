@@ -47,6 +47,7 @@
     flex-direction: column;
     border-radius: 5px;
     color: whitesmoke;
+    z-index: 1002;
 
     .p-info{
         padding-left: 10px;

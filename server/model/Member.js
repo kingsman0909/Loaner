@@ -89,56 +89,63 @@ class Member {
     // =========================================================
 
     static async getAll(options = {}) {
-
+    try {
         const {
-            search = "",
-            status = "",
-            loaner_id = null,
-            page = 1,
-            limit = 20
+            search = '',
+            status = '',
+            loaner_id = null
         } = options;
 
+        // IMPORTANT:
+        // req.query values are strings, so convert them to numbers
+        const page = Math.max(1, parseInt(options.page, 10) || 1);
+        const limit = Math.max(1, parseInt(options.limit, 10) || 10);
         const offset = (page - 1) * limit;
 
-        let where = [];
+        let conditions = [];
         let params = [];
 
-        if (search) {
-
-            where.push(`
+        // SEARCH
+        if (search && search.trim() !== '') {
+            conditions.push(`
                 (
                     m.firstname LIKE ?
                     OR m.lastname LIKE ?
-                    OR m.contact LIKE ?
                     OR CONCAT(m.firstname, ' ', m.lastname) LIKE ?
+                    OR m.contact LIKE ?
                 )
             `);
 
-            const keyword = `%${search}%`;
+            const searchValue = `%${search.trim()}%`;
 
             params.push(
-                keyword,
-                keyword,
-                keyword,
-                keyword
+                searchValue,
+                searchValue,
+                searchValue,
+                searchValue
             );
         }
 
-        if (status) {
-            where.push(`m.status = ?`);
+        // STATUS
+        if (status && status !== 'all') {
+            conditions.push(`m.status = ?`);
             params.push(status);
         }
 
+        // LOANER
         if (loaner_id) {
-            where.push(`m.loaner_id = ?`);
-            params.push(loaner_id);
+            conditions.push(`m.loaner_id = ?`);
+            params.push(Number(loaner_id));
         }
 
-        const whereSQL = where.length
-            ? `WHERE ${where.join(" AND ")}`
-            : "";
+        const whereClause =
+            conditions.length > 0
+                ? `WHERE ${conditions.join(' AND ')}`
+                : '';
 
-        const [rows] = await db.execute(`
+        
+
+        const sql = `
             SELECT
                 m.*,
 
@@ -174,22 +181,23 @@ class Member {
             LEFT JOIN loans lo
                 ON lo.member_id = m.id
 
-            ${whereSQL}
+            ${whereClause}
 
             GROUP BY m.id
 
             ORDER BY m.id DESC
 
-            LIMIT ? OFFSET ?
-        `, [
-            ...params,
-            Number(limit),
-            Number(offset)
-        ]);
+            LIMIT ${limit} OFFSET ${offset}
+        `;
+
+        const [rows] = await db.execute(sql, params);
 
         return rows;
+    } catch (error) {
+        console.error("GET MEMBERS ERROR:", error);
+        throw error;
     }
-
+}
 
     // =========================================================
     // COUNT MEMBERS

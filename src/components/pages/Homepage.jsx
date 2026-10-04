@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import {useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import Overview from '../contents/Dashboard/Overview';
+import Member from '../contents/Borrowers/Member';
 import Active from '../contents/Loans/Active';
 import Overdue from '../contents/Loans/Overdue';
 import Closed from '../contents/Loans/Closed';
@@ -90,8 +91,8 @@ const Homepage = () => {
             <div className={openProfile? 'profile-box':'profile-box hidden'}>
                 <label>{loaner?.firstname}</label>
                 <div className='p-info'>
-                    <p>Loan Officer</p>
-                    <small>cyrus@gmail.com</small>
+                    <p>Loan {loaner?.role}</p>
+                    <small>{loaner?.contact}</small>
                 </div>
 
                 <button onClick={()=>setOpenChange(!openChange)}>Change Password</button>
@@ -100,10 +101,10 @@ const Homepage = () => {
 
             <div className='h-content'>
                 {active === 'Overview' && <Overview />}
-                {active === 'Active' && <Active />}
                 {active === 'Applications' && <Applicants />}
                 {active === 'Overdue' && <Overdue />}
                 {active === 'Closed' && <Closed />}
+                {active === 'Members' && <Member />}
             </div>
         </div>
       </section>

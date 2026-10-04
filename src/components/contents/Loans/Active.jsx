@@ -3,42 +3,47 @@ import '../styles/loan.css';
 import { API_BASE_URL } from '../../../config';
 const Active = () => {
     const [loans, setLoans] = useState([]);
+    const [active, setActive] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [limit, setLimit] = useState(100);
+    const [page, setPage] = useState(1);
 
     const loanerToken = localStorage.getItem('loaner_token');
-
-    useEffect(() => {
-        fetchLoans();
-    }, []);
-
+    
     const fetchLoans = async () => {
         try {
             setLoading(true);
-
-            const response = await fetch(`${API_BASE_URL}/loans?status=active`, {
+            console.log('getting active')
+            const response = await fetch(`${API_BASE_URL}/loans?stat=active&page=1&limit=100`, {
                 headers: {
                     Authorization: `Bearer ${loanerToken}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch active loans');
+                alert(response.status);
+                throw new Error('Failed fetch active loans');
             }
 
             const data = await response.json();
-
-            setLoans(data.loans || data || []);
+            console.log('active: ', data);
+            setActive(data || []);
+            
         } catch (error) {
-            console.error(error);
+            console.error(error.message);
         } finally {
             setLoading(false);
         }
     };
+    useEffect(() => {
+        fetchLoans();
+    }, []);
 
-    const filteredLoans = loans.filter((loan) => {
+
+    const filteredLoans = loans.filter((active) => {
         const name =
-            `${loan.firstname || ''} ${loan.lastname || ''}`.toLowerCase();
+            `${active.firstname || ''} ${active.lastname || ''}`.toLowerCase();
 
         return name.includes(search.toLowerCase());
     });
@@ -53,7 +58,7 @@ const Active = () => {
                 </div>
 
                 <div className="loan-count">
-                    {loans.length} Active
+                    {active.length} Active
                 </div>
             </div>
 
@@ -72,14 +77,13 @@ const Active = () => {
                     <div className="loan-empty">
                         Loading active loans...
                     </div>
-                ) : filteredLoans.length === 0 ? (
+                ) : active.length === 0 ? (
                     <div className="loan-empty">
                         <h3>No Active Loans</h3>
                         <p>There are currently no active loans.</p>
                     </div>
                 ) : (
                     <table className="loan-table">
-
                         <thead>
                             <tr>
                                 <th>Member</th>
@@ -96,31 +100,32 @@ const Active = () => {
 
                         <tbody>
 
-                            {filteredLoans.map((loan) => {
+                            {filteredLoans.map((active) => {
 
-                                const totalDue = Number(loan.totalDue || 0);
-                                const paid = Number(loan.total_paid || 0);
+                                const totalDue = Number(active.totalDue || 0);
+                                const paid = Number(active.total_paid || 0);
                                 const remaining =
-                                    loan.remaining_balance !== undefined
-                                        ? Number(loan.remaining_balance)
+                                    active.remaining_balance !== undefined
+                                        ? Number(active.remaining_balance)
                                         : totalDue - paid;
 
+                                
                                 return (
-                                    <tr key={loan.id}>
+                                    <tr key={active.id }>
 
                                         <td>
                                             <div className="member-name">
-                                                {loan.firstname} {loan.lastname}
+                                                {active.firstname} {active.lastname}
                                             </div>
                                         </td>
 
                                         <td>
-                                            {loan.loan_type || loan.type || 'Loan'}
+                                            {active.loan_type || active.type || 'Loan'}
                                         </td>
 
                                         <td>
                                             ₱{Number(
-                                                loan.principalAmount || 0
+                                                active.principalAmount || 0
                                             ).toLocaleString()}
                                         </td>
 
@@ -137,12 +142,12 @@ const Active = () => {
                                         </td>
 
                                         <td>
-                                            {loan.due_date || '-'}
+                                            {active.due_date || '-'}
                                         </td>
 
                                         <td>
                                             <span className="loan-status active">
-                                                Active
+                                                {active.status}
                                             </span>
                                         </td>
 

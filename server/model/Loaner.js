@@ -386,6 +386,12 @@ const getMemberLoans = async (loanerId, memberId) => {
     return rows;
 };
 
+const getLoanTypes = async () => {
+    const [rows] = await db.query(`select * from loan_type`);
+
+    return rows;
+}
+
 
 // =========================================================
 // ALL LOANS OF LOANER
@@ -533,6 +539,42 @@ const getLoans = async (loanerId, options = {}) => {
             nextOffset: Number(offset) + rows.length
         }
     };
+};
+const getLoanPerStatus = async (status, page = 1, limit = 10) => {
+    try {
+        page = Math.max(1, parseInt(page, 10) || 1);
+        limit = Math.max(1, parseInt(limit, 10) || 10);
+
+        const offset = (page - 1) * limit;
+
+        const [countRows] = await db.query(`
+            SELECT COUNT(*) AS total
+            FROM loans
+            WHERE status = ?
+        `, [status]);
+
+        const total = Number(countRows[0]?.total || 0);
+
+        const [rows] = await db.query(`
+            SELECT *
+            FROM loans
+            WHERE status = ?
+            ORDER BY id DESC
+            LIMIT ${limit} OFFSET ${offset}
+        `, [status]);
+
+        return {
+            loans: rows,
+            total,
+            totalPage: Math.ceil(total / limit),
+            page,
+            limit
+        };
+
+    } catch (error) {
+        console.error("GET LOANS PER STATUS ERROR:", error);
+        throw error;
+    }
 };
 // =========================================================
 // FIND ONE LOAN
@@ -961,7 +1003,9 @@ module.exports = {
     // Loans
     getLoans,
     getLoan,
+    getLoanTypes,
     getLoanPayments,
+    getLoanPerStatus,
 
     // Dashboard
     getDashboardStats,
