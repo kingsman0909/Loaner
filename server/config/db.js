@@ -1,101 +1,108 @@
 require("dotenv").config();
 
-const mysql = require("mysql2/promise"); 
+const mysql = require("mysql2/promise");
+
 
 /*
 |--------------------------------------------------------------------------
 | DATABASE MODE
 |--------------------------------------------------------------------------
 |
-| DEVELOPMENT=true  + DEBUGGER=false
-|     -> AIVEN
+| DB_MODE=aiven
+|     -> Aiven MySQL
 |
-| DEVELOPMENT=false + DEBUGGER=true
-|     -> LOCALHOST
+| DB_MODE=local
+|     -> Local MySQL
 |
 */
 
-const isDevelopment =
-    String(process.env.DEVELOPMENT).toLowerCase() === "true";
-
-const isDebugger =
-    String(process.env.DEBUGGER).toLowerCase() === "true";
+const dbMode = String(process.env.DB_MODE || "local")
+    .trim()
+    .toLowerCase();
 
 
 /*
 |--------------------------------------------------------------------------
-| DATABASE CONFIG
+| DATABASE CONFIGURATION
 |--------------------------------------------------------------------------
 */
 
 let dbConfig;
-let dbMode;
 
-if (isDevelopment && !isDebugger) {
+switch (dbMode) {
 
-    // ==============================================================
+    // ==========================================================
     // AIVEN
-    // ==============================================================
+    // ==========================================================
 
-    dbMode = "AIVEN";
+    case "aiven":
 
-    dbConfig = {
-        host: process.env.AIVEN_DB_HOST,
-        port: Number(process.env.AIVEN_DB_PORT),
-        user: process.env.AIVEN_DB_USER,
-        password: process.env.AIVEN_DB_PASSWORD,
-        database: process.env.AIVEN_DB_NAME,
+        dbConfig = {
+            host: process.env.AIVEN_DB_HOST,
+            port: Number(process.env.AIVEN_DB_PORT || 27887),
+            user: process.env.AIVEN_DB_USER,
+            password: process.env.AIVEN_DB_PASSWORD,
+            database: process.env.AIVEN_DB_NAME,
 
-        ssl: {
-            rejectUnauthorized: false
-        }
-    };
+            ssl: {
+                rejectUnauthorized: false
+            }
+        };
 
-} else if (!isDevelopment && isDebugger) {
+        break;
 
-    // ==============================================================
-    // LOCALHOST
-    // ==============================================================
 
-    dbMode = "LOCALHOST";
+    // ==========================================================
+    // LOCAL MYSQL
+    // ==========================================================
 
-    dbConfig = {
-        host: process.env.LOCAL_DB_HOST || "localhost",
-        port: Number(process.env.LOCAL_DB_PORT || 3306),
-        user: process.env.LOCAL_DB_USER || "root",
-        password: process.env.LOCAL_DB_PASSWORD,
-        database: process.env.LOCAL_DB_NAME || "lms_db"
-    };
+    case "local":
 
-} else {
+        dbConfig = {
+            host: process.env.LOCAL_DB_HOST || "localhost",
+            port: Number(process.env.LOCAL_DB_PORT || 3306),
+            user: process.env.LOCAL_DB_USER || "root",
+            password: process.env.LOCAL_DB_PASSWORD || "",
+            database: process.env.LOCAL_DB_NAME || "loaner"
+        };
 
-    throw new Error(
-        `[DB] Invalid database mode. ` +
-        `DEVELOPMENT=${isDevelopment}, ` +
-        `DEBUGGER=${isDebugger}. ` +
-        `Use either DEVELOPMENT=true + DEBUGGER=false ` +
-        `or DEVELOPMENT=false + DEBUGGER=true.`
-    );
+        break;
+
+
+    // ==========================================================
+    // INVALID MODE
+    // ==========================================================
+
+    default:
+
+        throw new Error(
+            `[DB] Invalid DB_MODE="${dbMode}". ` +
+            `Use "local" or "aiven".`
+        );
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| DISPLAY DATABASE INFORMATION
+| DISPLAY DATABASE CONFIGURATION
 |--------------------------------------------------------------------------
 */
 
 console.log("");
 console.log("========================================");
-console.log("         DATABASE CONFIGURATION");
+console.log("       DATABASE CONFIGURATION");
 console.log("========================================");
-console.log(`[DB] Mode       : ${dbMode}`);
-console.log(`[DB] Host       : ${dbConfig.host}`);
-console.log(`[DB] Port       : ${dbConfig.port}`);
-console.log(`[DB] User       : ${dbConfig.user}`);
-console.log(`[DB] Database   : ${dbConfig.database}`);
+console.log(`[DB] Mode     : ${dbMode.toUpperCase()}`);
+console.log(`[DB] Host     : ${dbConfig.host}`);
+console.log(`[DB] Port     : ${dbConfig.port}`);
+console.log(`[DB] User     : ${dbConfig.user}`);
+console.log(`[DB] Database : ${dbConfig.database}`);
 console.log(
-    `[DB] SSL        : ${dbMode === "AIVEN" ? "ENABLED" : "DISABLED"}`
+    `[DB] SSL      : ${
+        dbMode === "aiven"
+            ? "ENABLED"
+            : "DISABLED"
+    }`
 );
 console.log("========================================");
 console.log("");
@@ -127,10 +134,6 @@ const pool = mysql.createPool({
 |--------------------------------------------------------------------------
 | TRACK INITIALIZED CONNECTIONS
 |--------------------------------------------------------------------------
-|
-| WeakSet prevents us from repeatedly executing SET SESSION
-| on the same physical connection.
-|
 */
 
 const initializedConnections = new WeakSet();
@@ -140,11 +143,14 @@ const initializedConnections = new WeakSet();
 |--------------------------------------------------------------------------
 | INITIALIZE CONNECTION
 |--------------------------------------------------------------------------
+|
+| Aiven-specific SQL configuration.
+|
 */
 
 async function initializeConnection(connection) {
 
-    if (dbMode !== "AIVEN") {
+    if (dbMode !== "aiven") {
         return;
     }
 
@@ -166,18 +172,19 @@ async function initializeConnection(connection) {
 
 /*
 |--------------------------------------------------------------------------
-| QUERY WRAPPER
+| DATABASE WRAPPER
 |--------------------------------------------------------------------------
 |
 | Existing models can continue using:
 |
 |     db.query(...)
-|
-| No model refactoring required.
+|     db.execute(...)
+|     db.getConnection()
 |
 */
 
 const db = {
+
 
     /*
     |--------------------------------------------------------------------------
@@ -239,9 +246,6 @@ const db = {
     |--------------------------------------------------------------------------
     | GET CONNECTION
     |--------------------------------------------------------------------------
-    |
-    | For code that manually obtains a connection.
-    |
     */
 
     async getConnection() {
@@ -270,23 +274,32 @@ const db = {
 
         connection = await pool.getConnection();
 
-        /*
-         * IMPORTANT:
-         * Wait until SQL mode is actually configured.
-         */
-
         await initializeConnection(connection);
 
         await connection.query("SELECT 1");
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SQL MODE
+        |--------------------------------------------------------------------------
+        */
 
         const [modeRows] = await connection.query(
             "SELECT @@SESSION.sql_mode AS sql_mode"
         );
 
-        const sqlMode = modeRows[0].sql_mode || "";
+        const sqlMode = modeRows[0]?.sql_mode || "";
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUCCESS
+        |--------------------------------------------------------------------------
+        */
 
         console.log(
-            `[DB] MySQL connection successful → ${dbMode}`
+            `[DB] MySQL connection successful → ${dbMode.toUpperCase()}`
         );
 
         console.log(
@@ -301,13 +314,16 @@ const db = {
             }`
         );
 
+        console.log("");
+
+
     } catch (error) {
 
         console.error("");
         console.error("========================================");
         console.error("       DATABASE CONNECTION ERROR");
         console.error("========================================");
-        console.error(`[DB] Mode : ${dbMode}`);
+        console.error(`[DB] Mode : ${dbMode.toUpperCase()}`);
         console.error(`[DB] Host : ${dbConfig.host}`);
         console.error(`[DB] Port : ${dbConfig.port}`);
         console.error(`[DB] DB   : ${dbConfig.database}`);
