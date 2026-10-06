@@ -453,21 +453,19 @@ const createLoan = async (
     const [memberRows] =
         await db.query(
             `
-            SELECT id
+            SELECT id, loaner_id
             FROM member
             WHERE id = ?
-            AND loaner_id = ?
             LIMIT 1
             `,
             [
-                memberId,
-                loanerId
+                memberId
             ]
         );
 
 
     if (
-        memberRows.length === 0
+        memberRows.length === 0 || memberRows[0].loaner_id !== loanerId
     ) {
 
         throw new Error(
@@ -475,6 +473,7 @@ const createLoan = async (
         );
     }
 
+    console.log('Member: ', memberRows[0].loaner_id);
 
     // ========================================================
     // GET LOAN TYPE
@@ -547,14 +546,14 @@ const createLoan = async (
                   100
               );
 
-
     // ========================================================
     // STATUS
     // ========================================================
 
-    const status =
-        data.status ||
-        "pending";
+    const [member] = await db.query(`select status from member where id = ?`, [memberId]);
+    
+    console.log('member: ', member[0].status);
+    const status = member[0]?.status;
 
 
     // ========================================================
@@ -579,8 +578,15 @@ const createLoan = async (
     // ========================================================
     // INSERT
     // ========================================================
+    const [active] = await db.query(`select activeLoan from member where id = ?`,[memberId]);
 
-    const [
+    const [maxLoan] = await db.query(`select maxLoan from member where id = ?`, [memberId]);
+    if(active[0].activeLoan >= maxLoan[0].maxLoan){
+        throw new Error(`max loan limit per member reach ${active[0].activeLoan}/${maxLoan[0].maxLoan} for member ID: ${memberId}`);
+    }
+    if(status.toLowerCase() === 'approved'){
+        console.log("creating loans ", status)
+        const [
         result
     ] =
         await db.query(
@@ -601,12 +607,9 @@ const createLoan = async (
 
                 releaseDate,
 
-                due_date,
-
-                status
-
+                due_date
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
 
@@ -624,18 +627,35 @@ const createLoan = async (
 
                 releaseDate,
 
-                dueDate,
-
-                status
+                dueDate
 
             ]
         );
 
 
-    return await getLoan(
+        if(active.length !== 0){
+            console.log("updating activeLoan count");
+            const [inc] = await db.query(`update Member set activeLoan = ${active[0].activeLoan + 1} where id = ?`, [memberId]);
+            
+            if(!inc){
+                throw new Error('cannot update activeLoan add check backend service');
+            }
+        }
+        return await getLoan(
         loanerId,
         result.insertId
     );
+
+    }
+
+    else{
+        throw new Error(`cannot create loan of member status of ${status}`);
+    }
+
+    
+
+
+    
 };
 
 
@@ -979,7 +999,7 @@ const updateLoan = async (
     );
 
 
-    await db.query(
+    const [update] = await db.query(
         `
         UPDATE loans
         SET
@@ -990,6 +1010,8 @@ const updateLoan = async (
         `,
         params
     );
+
+    
 
 
     return await getLoan(

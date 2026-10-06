@@ -110,3 +110,36 @@ insert into Member(firstname, lastname, age, source_of_income, province, city, b
 values("cyrus ken", "orilleneda", 22, "Work", "Laguna", "Cabuyao", "banay banay", "lakeside",
 		"09096068957", "approved");
         
+
+alter table Member
+add column
+activeLoan int default 0;
+
+use loaner;
+show tables;
+
+select * from loan_type;
+describe loans;
+
+select * from Member where activeLoan > 0;
+
+select m.firstname, l.principalAmount
+from Member m
+RIGHT JOIN loans l ON m.id = l.member_id
+where l.principalAmount > 0;
+
+delete from loans
+where member_id = (select id from Member where activeLoan > 3 and id = loans.member_id);
+
+
+select member_id, m.* from loans l
+LEFT JOIN Member m ON member_id = m.id
+group by member_id;
+
+
+update Member m
+LEFT JOIN (
+	select member_id, count(*) as loan from loans
+    group by member_id
+) l ON m.id = l.member_id
+set activeLoan = ifnull(l.loan, 0)

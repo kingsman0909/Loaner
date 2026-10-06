@@ -187,6 +187,7 @@ const Members = (props) => {
 
             const payload = {
                 ...form,
+                status: (isEdit ? form.status : 'Pending'),
                 loaner_id: props?.id
                     ? Number(props?.id)
                     : null,
@@ -951,6 +952,7 @@ const Members = (props) => {
                                 </div>
 
 
+                                {editingMember && 
                                 <div className="form-group">
 
                                     <label>
@@ -984,6 +986,7 @@ const Members = (props) => {
                                     </select>
 
                                 </div>
+                                }
 
                             </div>
 

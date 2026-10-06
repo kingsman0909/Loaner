@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/overview.css';
 
 import {
-    FiDollarSign,
     FiUsers,
     FiAlertCircle,
     FiCreditCard,
@@ -19,6 +18,8 @@ import {
     FiPercent,
     FiLoader
 } from 'react-icons/fi';
+
+import {FaPesoSign} from 'react-icons/fa6';
 
 import ReuseTable from '../../ReusableTable/ReusableTable';
 
@@ -1255,7 +1256,7 @@ const Overview = () => {
 
                         <div className="o-icon">
 
-                            <FiDollarSign />
+                            <FaPesoSign />
 
                         </div>
 
@@ -1592,7 +1593,7 @@ const Overview = () => {
 
                 <div className="mini-stat">
 
-                    <FiDollarSign />
+                    <FaPesoSign />
 
                     <div>
 

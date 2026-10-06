@@ -104,6 +104,7 @@ const Loans = () => {
         }
 
         if (!response.ok) {
+            alert(result.message || result.status);
             throw new Error(
                 getErrorMessage(
                     result,
@@ -1904,6 +1905,7 @@ const Loans = () => {
 
                                     {/* STATUS */}
 
+                                    {modal.type === 'edit' &&
                                     <label className="loan-field">
 
                                         <span>
@@ -1936,6 +1938,9 @@ const Loans = () => {
 
                                     </label>
 
+                                    
+
+                                    }
                                     {/* RELEASE DATE */}
 
                                     <label className="loan-field">

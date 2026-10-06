@@ -8,6 +8,7 @@ class Member {
 
     static async create(data) {
 
+
         const {
             loaner_id,
             firstname,

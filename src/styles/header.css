@@ -4,7 +4,7 @@
     left: 0;
     min-width: 100vw;
     min-height: 80px;
-    background: var(--header);
+    background: rgb(31, 30, 30);
     box-shadow: 0 0 10px gray;
     padding-inline: 20px;
     display: flex;
@@ -15,7 +15,7 @@
 
 .profile{
     border: 1px solid gray;
-    background: rgb(3, 70, 148);
+    background: rgb(12, 12, 12);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -26,7 +26,7 @@
     border-radius: var(--radius);
 
     .p-circle{
-        background: rgb(81, 116, 168);
+        background: rgb(43, 44, 44);
         padding: 5px;
         border-radius: 50%;
         width: 30px;
