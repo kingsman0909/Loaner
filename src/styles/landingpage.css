@@ -16,9 +16,6 @@ body,
   padding: 0;
 }
 
-html{
-    overflow: auto;
-}
 
 body {
   background: #050708;
@@ -35,13 +32,7 @@ body {
    LANDING WRAPPER
    ========================================================= */
 
-.landing-wrapper {
-  width: 100%;
-  min-height: 100vh;
 
-  overflow-x: hidden;
-  overflow-y: auto;
-}
 
 
 /* =========================================================
@@ -61,6 +52,8 @@ body {
       transparent 35%
     ),
     #050708;
+
+    overflow: hidden;
 
   color: #ffffff;
   font-family: Arial, Helvetica, sans-serif;
@@ -86,8 +79,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  overflow: hidden;
 
   background:
     linear-gradient(
@@ -296,6 +287,7 @@ body {
 
   width: 45%;
 
+  height: 100dvh;
   min-width: 0;
   min-height: 100vh;
 
@@ -311,7 +303,7 @@ body {
     No overflow-y:auto here.
     The whole browser page handles scrolling.
   */
-  overflow: visible;
+  overflow: auto;
 }
 
 
@@ -321,8 +313,8 @@ body {
 
 .login-container {
   width: min(430px, 100%);
-
-  padding: 48px;
+  min-height: fit-content;
+  padding: 20px;
 
   border:
     1px solid #182327;
@@ -812,20 +804,7 @@ body {
      ===================================================== */
 
   .l-left {
-    width: 100%;
-
-    height: auto;
-
-    min-height: 330px;
-
-    padding: 70px 30px;
-
-    border-right: none;
-
-    border-bottom:
-      1px solid rgba(0, 229, 255, 0.14);
-
-    overflow: hidden;
+    display: none;
   }
 
 

@@ -1,10 +1,9 @@
-
-
 .homepage{
     position: relative;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+    overflow: hidden;
 }
 
 
@@ -22,8 +21,8 @@
 
 .h-content{
     flex: 1;
-    margin-top: 80px;
     height: 100dvh;
+    margin-top: 80px;
     padding-left: 20px;
     padding-bottom: 10px;
 }

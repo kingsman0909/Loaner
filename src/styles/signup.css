@@ -23,7 +23,6 @@ body {
 
 .signup {
   width: 100%;
-  height: 100vh;
 
   display: flex;
 
@@ -33,7 +32,7 @@ body {
       rgba(0, 229, 255, 0.08),
       transparent 35%
     ),
-    #050708;
+    rgb(0, 0, 0);
 
   color: #ffffff;
 
@@ -248,12 +247,12 @@ body {
   flex: 1 1 auto;
 
   width: 58%;
-  height: 100vh;
+  height: 100dvh;
 
   min-width: 0;
   min-height: 0;
 
-  padding: 55px 7vw 60px;
+  padding: 50px 60px;
 
   overflow-x: hidden;
   overflow-y: auto;
@@ -716,24 +715,7 @@ body {
   /* LEFT BECOMES NORMAL TOP SECTION */
 
   .s-left {
-    width: 100%;
-    height: auto;
-
-    min-height: 320px;
-
-    padding: 70px 30px;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    overflow: hidden;
-
-    border-right: none;
-
-    border-bottom:
-      1px solid rgba(0, 229, 255, 0.15);
+    display: none;
   }
 
 
@@ -789,7 +771,8 @@ body {
 @media (max-width: 600px) {
 
   .signup {
-    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: 100dvh;
   }
 
 
