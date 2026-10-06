@@ -1,65 +1,1066 @@
-.landing{
-    height: 100dvh;
-    width: 100vw;
-    max-height: 100dvh;
-    max-width: 100vw;
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html{
+    overflow: auto;
+}
+
+body {
+  background: #050708;
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+
+  /* IMPORTANT:
+     Let the browser handle the main page scroll */
+  overflow-x: hidden;
+}
+
+
+/* =========================================================
+   LANDING WRAPPER
+   ========================================================= */
+
+.landing-wrapper {
+  width: 100%;
+  min-height: 100vh;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+
+/* =========================================================
+   MAIN LANDING
+   ========================================================= */
+
+.landing {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+
+  background:
+    radial-gradient(
+      circle at 85% 30%,
+      rgba(0, 229, 255, 0.07),
+      transparent 35%
+    ),
+    #050708;
+
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+
+  /* IMPORTANT:
+     Do NOT use height: 100%;
+     Do NOT use overflow: hidden here */
+}
+
+
+/* =========================================================
+   LEFT SIDE
+   ========================================================= */
+
+.l-left {
+  flex: 0 0 55%;
+  width: 55%;
+
+  min-height: 100vh;
+
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0, 229, 255, 0.08),
+      transparent 45%
+    ),
+    #070a0c;
+
+  border-right:
+    1px solid rgba(0, 229, 255, 0.14);
+}
+
+
+/* =========================================================
+   LEFT GLOW
+   ========================================================= */
+
+.l-left::before {
+  content: "";
+
+  position: absolute;
+
+  width: 520px;
+  height: 520px;
+
+  top: 50%;
+  left: 50%;
+
+  transform: translate(-50%, -50%);
+
+  border-radius: 50%;
+
+  background:
+    rgba(0, 229, 255, 0.045);
+
+  filter: blur(90px);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   LEFT DECORATION
+   ========================================================= */
+
+.l-left::after {
+  content: "";
+
+  position: absolute;
+
+  width: 260px;
+  height: 260px;
+
+  right: -120px;
+  bottom: -100px;
+
+  border:
+    1px solid rgba(0, 229, 255, 0.12);
+
+  border-radius: 35px;
+
+  transform: rotate(45deg);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.landing-brand {
+  width: min(520px, 78%);
+
+  position: relative;
+
+  z-index: 2;
+}
+
+
+/* =========================================================
+   ICON
+   ========================================================= */
+
+.landing-icon {
+  width: 68px;
+  height: 68px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 30px;
+
+  border:
+    1px solid #00e5ff;
+
+  border-radius: 18px;
+
+  background:
+    rgba(0, 229, 255, 0.025);
+
+  color: #00e5ff;
+
+  font-size: 32px;
+  font-weight: 900;
+
+  box-shadow:
+    0 0 30px rgba(0, 229, 255, 0.12),
+    inset 0 0 20px rgba(0, 229, 255, 0.04);
+}
+
+
+/* =========================================================
+   TAG
+   ========================================================= */
+
+.landing-tag {
+  display: block;
+
+  margin-bottom: 12px;
+
+  color: #00e5ff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 3px;
+}
+
+
+/* =========================================================
+   TITLE
+   ========================================================= */
+
+.landing-brand h1 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: clamp(65px, 8vw, 110px);
+
+  font-weight: 900;
+
+  letter-spacing: -6px;
+
+  line-height: 0.9;
+}
+
+
+/* =========================================================
+   DESCRIPTION
+   ========================================================= */
+
+.landing-brand p {
+  max-width: 450px;
+
+  margin: 30px 0;
+
+  color: #89969a;
+
+  font-size: 15px;
+
+  line-height: 1.9;
+}
+
+
+/* =========================================================
+   LINE
+   ========================================================= */
+
+.landing-line {
+  width: 70px;
+  height: 2px;
+
+  margin-bottom: 17px;
+
+  background: #00e5ff;
+
+  box-shadow:
+    0 0 15px rgba(0, 229, 255, 0.6);
+}
+
+
+/* =========================================================
+   CAPTION
+   ========================================================= */
+
+.landing-caption {
+  color: #00e5ff;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 3px;
+}
+
+
+/* =========================================================
+   RIGHT SIDE
+   ========================================================= */
+
+.l-right {
+  flex: 1;
+
+  width: 45%;
+
+  min-width: 0;
+  min-height: 100vh;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  /*
+    IMPORTANT:
+    No overflow-y:auto here.
+    The whole browser page handles scrolling.
+  */
+  overflow: visible;
+}
+
+
+/* =========================================================
+   LOGIN CONTAINER
+   ========================================================= */
+
+.login-container {
+  width: min(430px, 100%);
+
+  padding: 48px;
+
+  border:
+    1px solid #182327;
+
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(16, 22, 24, 0.96),
+      rgba(7, 10, 12, 0.98)
+    );
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+
+/* =========================================================
+   LOGIN HEADER
+   ========================================================= */
+
+.login-header {
+  margin-bottom: 35px;
+}
+
+
+.login-label {
+  display: inline-block;
+
+  margin-bottom: 10px;
+
+  color: #00e5ff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 3px;
+}
+
+
+.login-header h2 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: 42px;
+  font-weight: 800;
+
+  letter-spacing: -1.5px;
+}
+
+
+.login-header p {
+  margin: 10px 0 0;
+
+  color: #6f7c80;
+
+  font-size: 13px;
+
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   INPUT GROUP
+   ========================================================= */
+
+.login-input {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 9px;
+
+  margin-bottom: 20px;
+}
+
+
+.login-input label {
+  color: #aeb9bd;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+
+  text-transform: uppercase;
+}
+
+
+/* =========================================================
+   INPUT WRAPPER
+   ========================================================= */
+
+.input-wrapper {
+  width: 100%;
+  height: 54px;
+
+  display: flex;
+
+  align-items: center;
+
+  border:
+    1px solid #202a2e;
+
+  border-radius: 11px;
+
+  background: #0b0f11;
+
+  overflow: hidden;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+
+/*
+   IMPORTANT:
+   :focus does not trigger on div reliably.
+   Use :focus-within instead.
+*/
+
+.input-wrapper:focus-within {
+  border-color: #00e5ff;
+
+  background: #0c1214;
+
+  box-shadow:
+    0 0 0 3px rgba(0, 229, 255, 0.07),
+    0 0 20px rgba(0, 229, 255, 0.04);
+}
+
+
+/* =========================================================
+   INPUT ICON
+   ========================================================= */
+
+.input-icon {
+  width: 48px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  color: #00e5ff;
+
+  font-size: 15px;
+  font-weight: 800;
+
+  opacity: 0.8;
+}
+
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+.input-wrapper input {
+  width: 100%;
+  height: 100%;
+
+  padding: 0 14px 0 0;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 14px;
+}
+
+
+.input-wrapper input::placeholder {
+  color: #485458;
+}
+
+
+/* =========================================================
+   AUTOFILL
+   ========================================================= */
+
+.input-wrapper input:-webkit-autofill,
+.input-wrapper input:-webkit-autofill:hover,
+.input-wrapper input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff;
+
+  -webkit-box-shadow:
+    0 0 0 1000px #0b0f11 inset;
+
+  transition:
+    background-color 5000s ease-in-out 0s;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.l-actions {
+  width: 100%;
+
+  margin-top: 30px;
+}
+
+
+/* =========================================================
+   LOGIN BUTTON
+   ========================================================= */
+
+.l-login {
+  width: 100%;
+  height: 53px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 15px;
+
+  border:
+    1px solid #00e5ff;
+
+  border-radius: 10px;
+
+  background: #00e5ff;
+
+  color: #031013;
+
+  font-family: inherit;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  letter-spacing: 1px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+
+.l-login span {
+  font-size: 20px;
+
+  line-height: 0;
+}
+
+
+.l-login:hover {
+  background: #ffffff;
+
+  border-color: #ffffff;
+
+  box-shadow:
+    0 0 25px rgba(0, 229, 255, 0.18);
+
+  transform: translateY(-2px);
+}
+
+
+.l-login:active {
+  transform: translateY(1px);
+}
+
+
+.l-login:disabled {
+  opacity: 0.55;
+
+  cursor: not-allowed;
+
+  transform: none;
+
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   DIVIDER
+   ========================================================= */
+
+.signup-divider {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin: 22px 0;
+}
+
+
+.signup-divider::before,
+.signup-divider::after {
+  content: "";
+
+  flex: 1;
+
+  height: 1px;
+
+  background: #1b2528;
+}
+
+
+.signup-divider span {
+  color: #4f5b5f;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   SIGNUP BUTTON
+   ========================================================= */
+
+.l-sign {
+  width: 100%;
+  height: 53px;
+
+  border:
+    1px solid #283337;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.15s ease;
+}
+
+
+.l-sign:hover {
+  border-color: #00e5ff;
+
+  background:
+    rgba(0, 229, 255, 0.05);
+
+  color: #00e5ff;
+
+  transform: translateY(-2px);
+}
+
+
+.l-sign:active {
+  transform: translateY(1px);
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.login-footer {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 28px;
+
+  color: #5f6b6f;
+
+  font-size: 11px;
+}
+
+
+.login-footer button {
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: #00e5ff;
+
+  font-family: inherit;
+
+  font-size: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.login-footer button:hover {
+  color: #ffffff;
+
+  text-decoration: underline;
+}
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+.l-login:focus-visible,
+.l-sign:focus-visible,
+.login-footer button:focus-visible,
+.input-wrapper input:focus-visible {
+  outline: 2px solid #00e5ff;
+
+  outline-offset: 3px;
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 950px) {
+
+  html,
+  body,
+  #root {
+    width: 100%;
+
+    height: auto;
+
+    min-height: 100%;
+  }
+
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+
+  .landing-wrapper {
+    width: 100%;
+
+    min-height: 100vh;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+
+  .landing {
+    width: 100%;
+
+    min-height: 100vh;
+
+    display: block;
+
+    overflow: visible;
+  }
+
+
+  /* =====================================================
+     BRANDING
+     ===================================================== */
+
+  .l-left {
+    width: 100%;
+
+    height: auto;
+
+    min-height: 330px;
+
+    padding: 70px 30px;
+
+    border-right: none;
+
+    border-bottom:
+      1px solid rgba(0, 229, 255, 0.14);
+
     overflow: hidden;
-    background: black;
+  }
+
+
+  .landing-brand {
+    width: 100%;
+
+    max-width: 600px;
+
+    text-align: center;
+  }
+
+
+  .landing-icon {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+
+  .landing-brand p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+
+  .landing-line {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+
+  /* =====================================================
+     LOGIN
+     ===================================================== */
+
+  .l-right {
+    width: 100%;
+
+    height: auto;
+
+    min-height: auto;
+
+    padding: 55px 30px 70px;
+
     display: flex;
+
+    align-items: flex-start;
+    justify-content: center;
+
+    overflow: visible;
+  }
+
+
+  .login-container {
+    width: min(430px, 100%);
+  }
 }
 
-.l-left{
-    width: 70%;
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .l-left {
+    min-height: 270px;
+
+    padding: 45px 20px;
+  }
+
+
+  .landing-icon {
+    width: 50px;
+    height: 50px;
+
+    margin-bottom: 20px;
+
+    border-radius: 13px;
+
+    font-size: 23px;
+  }
+
+
+  .landing-tag {
+    font-size: 8px;
+
+    letter-spacing: 2px;
+  }
+
+
+  .landing-brand h1 {
+    font-size: 48px;
+
+    letter-spacing: -3px;
+  }
+
+
+  .landing-brand p {
+    margin: 18px auto;
+
+    font-size: 12px;
+
+    line-height: 1.65;
+  }
+
+
+  .landing-caption {
+    font-size: 8px;
+
+    letter-spacing: 2px;
+  }
+
+
+  /* LOGIN */
+
+  .l-right {
+    min-height: auto;
+
+    padding: 35px 18px 60px;
+  }
+
+
+  .login-container {
+    width: 100%;
+
+    padding: 30px 22px;
+
+    border-radius: 18px;
+  }
+
+
+  .login-header {
+    margin-bottom: 28px;
+  }
+
+
+  .login-header h2 {
+    font-size: 34px;
+  }
+
+
+  .login-header p {
+    font-size: 12px;
+  }
+
+
+  .input-wrapper {
+    height: 50px;
+  }
+
+
+  .l-login,
+  .l-sign {
+    height: 50px;
+  }
 }
 
-.l-right{
-    flex: 1;
-    background: var(--background);
-    display: flex;
-    flex-direction: column;
-    padding-inline: 40px;
-    padding-top: 8%;
 
-    h2{
-        color: var(--color);
-        font-size: 30px;
-        font-weight: bolder;
-        align-self: center;
-    }
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
 
-    form{
-        margin-top: 10%;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+@media (max-width: 380px) {
 
-        input{
-            height: 20px;
-            width: 70%;
-            min-width: 150px;
-            min-height: 30px;
-            padding-left: 10px;
-            border-radius: var(--radius);
-            border: 1px solid rgba(20, 20, 20, 0.4);
-        }
+  .l-left {
+    min-height: 245px;
 
-        .l-actions{
-            margin-top: 5%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
+    padding: 35px 15px;
+  }
 
-            button{
-                cursor: pointer;
-                min-height: 30px;
-                min-width: 100px;
-                box-shadow: 0 0 3px black;
-            }
 
-            .l-login{
-                background: var(--accent);
-            }
-        }
-    }
+  .landing-brand h1 {
+    font-size: 40px;
+  }
+
+
+  .landing-brand p {
+    font-size: 11px;
+  }
+
+
+  .l-right {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+
+  .login-container {
+    padding: 27px 18px;
+  }
+}
+
+
+/* =========================================================
+   LANDSCAPE MOBILE
+   ========================================================= */
+
+@media (max-height: 600px) and (orientation: landscape) {
+
+  .landing {
+    min-height: 100vh;
+  }
+
+
+  .l-left {
+    min-height: 250px;
+
+    padding: 35px 20px;
+  }
+
+
+  .landing-brand h1 {
+    font-size: 45px;
+  }
+
+
+  .landing-brand p {
+    margin: 12px auto;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+
+    transition: none !important;
+
+    scroll-behavior: auto !important;
+  }
 }
