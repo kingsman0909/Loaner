@@ -26,10 +26,14 @@ const Signup = () => {
 
     const onSignup = async (e) => {
       e.preventDefault();
+        
         if(!username || !password){
           return alert("Invalid username or password")
         }
 
+        if(password.length < 8){
+          alert('Passwor must be 8 or more characters')
+        }
         try{
             
           const result = await fetch(`${API_BASE_URL}/signup`, {

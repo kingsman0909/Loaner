@@ -449,7 +449,6 @@ const createLoan = async (
     // ========================================================
     // CHECK MEMBER
     // ========================================================
-
     const [memberRows] =
         await db.query(
             `
@@ -635,7 +634,7 @@ const createLoan = async (
 
         if(active.length !== 0){
             console.log("updating activeLoan count");
-            const [inc] = await db.query(`update Member set activeLoan = ${active[0].activeLoan + 1} where id = ?`, [memberId]);
+            const [inc] = await db.query(`update member set activeLoan = ${active[0].activeLoan + 1} where id = ?`, [memberId]);
             
             if(!inc){
                 throw new Error('cannot update activeLoan add check backend service');
