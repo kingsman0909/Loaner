@@ -75,7 +75,7 @@ const createLoaner = async (Loaner) => {
 const changePassword = async (username, newPass) => {
 
     const [rows] = await db.query(`
-        UPDATE Loaner
+        UPDATE loaner
         SET password = ?
         WHERE username = ?
     `, [newPass, username]);
