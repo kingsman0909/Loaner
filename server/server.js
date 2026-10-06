@@ -15,7 +15,7 @@ const app = express();
 */
 
 app.use(cors({
-    origin: *, // allow everyone just for our projects process.env.CLIENT_URL
+    origin: true, // allow everyone just for our projects process.env.CLIENT_URL
     credentials: true
 }));
 
