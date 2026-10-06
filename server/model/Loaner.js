@@ -11,7 +11,7 @@ const findByUsername = async (username) => {
 
     const [rows] = await db.query(`
         SELECT *
-        FROM Loaner
+        FROM loaner
         WHERE username = ?
     `, [username]);
 
@@ -92,7 +92,7 @@ const findById = async (id) => {
 
     const [rows] = await db.query(`
         SELECT *
-        FROM Loaner
+        FROM loaner
         WHERE id = ?
         LIMIT 1
     `, [id]);
@@ -116,7 +116,7 @@ const updateProfile = async (id, data) => {
     } = data;
 
     const [rows] = await db.query(`
-        UPDATE Loaner
+        UPDATE loaner
         SET
             firstname = ?,
             lastname = ?,
