@@ -38,7 +38,7 @@ const createLoaner = async (Loaner) => {
 
 
     const [rows] = await db.query(`
-        INSERT INTO Loaner (
+        INSERT INTO loaner (
             username,
             password,
             firstname,
