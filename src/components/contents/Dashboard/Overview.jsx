@@ -22,14 +22,14 @@ import {
 import {FaPesoSign} from 'react-icons/fa6';
 
 import ReuseTable from '../../ReusableTable/ReusableTable';
+import {API_BASE_URL} from '../../../config';
 
 
 // ============================================================
 // API
 // ============================================================
 
-const API_BASE_URL =
-    'http://localhost:3000/api/auth';
+
 
 
 // ============================================================
