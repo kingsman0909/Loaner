@@ -21,7 +21,7 @@
     min-height: 100%;
     padding: 28px;
     color: var(--tx-text);
-    background: var(--tx-bg);
+    background: transparent;
     font-family: Inter, "Segoe UI", Arial, sans-serif;
     box-sizing: border-box;
 }

@@ -271,52 +271,235 @@ const Applicants = () => {
     |--------------------------------------------------------------------------
     */
 
-    const calculateTotalDue =
-        useCallback(
-            (
-                principalAmount,
-                loanTypeId
-            ) => {
+   /*
+|--------------------------------------------------------------------------
+| DATE HELPERS
+|--------------------------------------------------------------------------
+*/
 
-                const principal =
-                    Number(
-                        principalAmount
-                    );
+const parseDateOnly = value => {
 
-                if (
-                    !Number.isFinite(
-                        principal
-                    ) ||
-                    principal < 0
-                ) {
-                    return '';
-                }
+    if (!value) {
+        return null;
+    }
 
-                const interest =
-                    getInterestByLoanType(
-                        loanTypeId
-                    );
+    const [year, month, day] =
+        String(value)
+            .slice(0, 10)
+            .split('-')
+            .map(Number);
 
-                if (interest === '') {
-                    return '';
-                }
+    if (
+        !year ||
+        !month ||
+        !day
+    ) {
+        return null;
+    }
 
-                const rate =
-                    Number(interest);
+    return new Date(
+        Date.UTC(
+            year,
+            month - 1,
+            day
+        )
+    );
+};
 
-                const total =
-                    principal +
-                    (
-                        principal *
-                        rate /
-                        100
-                    );
+const formatDateOnly = date => {
 
-                return total.toFixed(2);
-            },
-            [getInterestByLoanType]
+    if (!date) {
+        return '';
+    }
+
+    return date
+        .toISOString()
+        .slice(0, 10);
+};
+
+/*
+|--------------------------------------------------------------------------
+| ADD MONTHS
+|--------------------------------------------------------------------------
+*/
+
+const addMonths = (
+    dateString,
+    months
+) => {
+
+    const date =
+        parseDateOnly(dateString);
+
+    if (!date) {
+        return null;
+    }
+
+    const originalDay =
+        date.getUTCDate();
+
+    const result =
+        new Date(date);
+
+    result.setUTCDate(1);
+
+    result.setUTCMonth(
+        result.getUTCMonth() +
+        months
+    );
+
+    const lastDay =
+        new Date(
+            Date.UTC(
+                result.getUTCFullYear(),
+                result.getUTCMonth() + 1,
+                0
+            )
+        ).getUTCDate();
+
+    result.setUTCDate(
+        Math.min(
+            originalDay,
+            lastDay
+        )
+    );
+
+    return result;
+};
+
+/*
+|--------------------------------------------------------------------------
+| FULL MONTHS BETWEEN DATES
+|--------------------------------------------------------------------------
+*/
+
+const getFullMonthsBetween = (
+    startDate,
+    endDate
+) => {
+
+    const start =
+        parseDateOnly(startDate);
+
+    const end =
+        parseDateOnly(endDate);
+
+    if (!start || !end) {
+        return 0;
+    }
+
+    if (end <= start) {
+        return 0;
+    }
+
+    let months =
+        (
+            end.getUTCFullYear() -
+            start.getUTCFullYear()
+        ) * 12 +
+        (
+            end.getUTCMonth() -
+            start.getUTCMonth()
         );
 
+    /*
+     * Check whether the final month
+     * has actually been completed.
+     */
+    const anniversary =
+        addMonths(
+            startDate,
+            months
+        );
+
+    if (
+        anniversary &&
+        anniversary > end
+    ) {
+        months--;
+    }
+
+    return Math.max(
+        0,
+        months
+    );
+};
+
+    /*
+|--------------------------------------------------------------------------
+| CALCULATE TOTAL DUE
+|--------------------------------------------------------------------------
+*/
+
+const calculateTotalDue =
+    useCallback(
+        (
+            principalAmount,
+            loanTypeId,
+            releaseDate,
+            dueDate
+        ) => {
+
+            const principal =
+                Number(
+                    principalAmount
+                );
+
+            if (
+                !Number.isFinite(
+                    principal
+                ) ||
+                principal < 0
+            ) {
+                return '';
+            }
+
+            const interest =
+                getInterestByLoanType(
+                    loanTypeId
+                );
+
+            if (interest === '') {
+                return '';
+            }
+
+            if (
+                !releaseDate ||
+                !dueDate
+            ) {
+                return '';
+            }
+
+            const months =
+                getFullMonthsBetween(
+                    releaseDate,
+                    dueDate
+                );
+
+            if (months < 1) {
+                return '';
+            }
+
+            const rate =
+                Number(interest);
+
+            const totalInterest =
+                principal *
+                (
+                    rate / 100
+                ) *
+                months;
+
+            const total =
+                principal +
+                totalInterest;
+
+            return total.toFixed(2);
+        },
+        [
+            getInterestByLoanType
+        ]
+    );
     /*
     |--------------------------------------------------------------------------
     | NORMALIZE LOAN
@@ -988,87 +1171,102 @@ const Applicants = () => {
     */
 
     const updateForm =
-        event => {
+    event => {
 
-            const {
-                name,
-                value
-            } = event.target;
+        const {
+            name,
+            value
+        } = event.target;
 
-            setForm(
-                previous => {
+        setForm(
+            previous => {
 
-                    const next = {
-                        ...previous,
-                        [name]: value
-                    };
+                const next = {
+                    ...previous,
+                    [name]: value
+                };
 
-                    if (
-                        name ===
-                        'loan_type_id'
-                    ) {
+                /*
+                |--------------------------------------------------------------------------
+                | LOAN TYPE
+                |--------------------------------------------------------------------------
+                */
 
-                        const selectedType =
-                            getLoanTypeById(
-                                value
-                            );
+                if (
+                    name ===
+                    'loan_type_id'
+                ) {
 
-                        const selectedInterest =
-                            selectedType
-                                ? Number(
-                                    selectedType
-                                        .interest ||
-                                    0
-                                )
-                                : '';
+                    const selectedType =
+                        getLoanTypeById(
+                            value
+                        );
 
-                        next.interest =
-                            selectedInterest;
+                    const selectedInterest =
+                        selectedType
+                            ? Number(
+                                selectedType
+                                    .interest ||
+                                0
+                            )
+                            : '';
 
-                        next.totalDue =
-                            calculateTotalDue(
-                                next.principalAmount,
-                                value
-                            );
-                    }
-
-                    if (
-                        name ===
-                        'principalAmount'
-                    ) {
-
-                        next.totalDue =
-                            calculateTotalDue(
-                                value,
-                                next.loan_type_id
-                            );
-                    }
-
-                    if (
-                        name ===
-                        'interest'
-                    ) {
-
-                        const selectedInterest =
-                            getInterestByLoanType(
-                                next.loan_type_id
-                            );
-
-                        next.interest =
-                            selectedInterest;
-
-                        next.totalDue =
-                            calculateTotalDue(
-                                next.principalAmount,
-                                next.loan_type_id
-                            );
-                    }
-
-                    return next;
+                    next.interest =
+                        selectedInterest;
                 }
-            );
-        };
 
+                /*
+                |--------------------------------------------------------------------------
+                | INTEREST IS ALWAYS CONTROLLED BY LOAN TYPE
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    name ===
+                    'interest'
+                ) {
+
+                    const selectedInterest =
+                        getInterestByLoanType(
+                            next.loan_type_id
+                        );
+
+                    next.interest =
+                        selectedInterest;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | RECALCULATE TOTAL
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    name ===
+                    'principalAmount' ||
+                    name ===
+                    'loan_type_id' ||
+                    name ===
+                    'releaseDate' ||
+                    name ===
+                    'due_date' ||
+                    name ===
+                    'interest'
+                ) {
+
+                    next.totalDue =
+                        calculateTotalDue(
+                            next.principalAmount,
+                            next.loan_type_id,
+                            next.releaseDate,
+                            next.due_date
+                        );
+                }
+
+                return next;
+            }
+        );
+    };
     /*
     |--------------------------------------------------------------------------
     | SAVE LOAN
@@ -1081,6 +1279,62 @@ const Applicants = () => {
             event.preventDefault();
 
             setFormError('');
+
+            if (!form.releaseDate) {
+
+                setFormError(
+                    'Please select a release date.'
+                );
+
+                return;
+            }
+
+            if (!form.due_date) {
+
+                setFormError(
+                    'Please select a due date.'
+                );
+
+                return;
+            }
+
+            
+
+            const minimumDueDate =
+                addMonths(
+                    form.releaseDate,
+                    1
+                );
+
+            const release =
+                parseDateOnly(
+                    form.releaseDate
+                );
+
+            const due =
+                parseDateOnly(
+                    form.due_date
+                );
+
+            if (!release || !due) {
+
+                setFormError(
+                    'Invalid release or due date.'
+                );
+
+                return;
+            }
+
+            if (due < minimumDueDate) {
+
+                setFormError(
+                    `Due date must be at least one month after the release date. Minimum due date is ${formatDate(
+                        minimumDueDate
+                    )}.`
+                );
+
+                return;
+            }
 
             const principal =
                 Number(
@@ -1159,18 +1413,26 @@ const Applicants = () => {
                         .interest || 0
                 );
 
+            const months =
+                getFullMonthsBetween(
+                    form.releaseDate,
+                    form.due_date
+                );
+
+            const totalInterest =
+                principal *
+                (
+                    interest / 100
+                ) *
+                months;
+
             const calculatedTotal =
                 Number(
                     (
                         principal +
-                        (
-                            principal *
-                            interest /
-                            100
-                        )
+                        totalInterest
                     ).toFixed(2)
                 );
-
             if (!form.due_date) {
 
                 setFormError(
@@ -2652,22 +2914,18 @@ const Applicants = () => {
                                     <label className="loan-field">
 
                                         <span>
-                                            Release Date
+                                            Release Date *
                                         </span>
 
                                         <input
                                             name="releaseDate"
                                             type="date"
-                                            value={
-                                                form.releaseDate
-                                            }
-                                            onChange={
-                                                updateForm
-                                            }
+                                            value={form.releaseDate}
+                                            onChange={updateForm}
+                                            required
                                         />
 
                                     </label>
-
                                     {/* DUE DATE */}
 
                                     <label className="loan-field">
@@ -2679,68 +2937,117 @@ const Applicants = () => {
                                         <input
                                             name="due_date"
                                             type="date"
-                                            value={
-                                                form.due_date
+                                            value={form.due_date}
+                                            min={
+                                                form.releaseDate
+                                                    ? formatDateOnly(
+                                                        addMonths(
+                                                            form.releaseDate,
+                                                            1
+                                                        )
+                                                    )
+                                                    : undefined
                                             }
-                                            onChange={
-                                                updateForm
-                                            }
+                                            onChange={updateForm}
                                             required
                                         />
 
-                                    </label>
+                                        {form.releaseDate && (
 
+                                            <small>
+                                                Minimum due date:
+                                                {' '}
+                                                <strong>
+                                                    {formatDate(
+                                                        addMonths(
+                                                            form.releaseDate,
+                                                            1
+                                                        )
+                                                    )}
+                                                </strong>
+                                            </small>
+
+                                        )}
+
+                                    </label>
                                 </div>
 
-                                {selectedLoanType && (
+                                {selectedLoanType &&
+                                form.releaseDate &&
+                                form.due_date && (
 
                                     <div className="loan-form-hint">
 
-                                        <strong>
-                                            {
-                                                selectedLoanType.type
-                                            }
-                                        </strong>
+                                        {(() => {
 
-                                        {' '}loan selected.
+                                            const months =
+                                                getFullMonthsBetween(
+                                                    form.releaseDate,
+                                                    form.due_date
+                                                );
 
-                                        Interest rate is{' '}
+                                            const principal =
+                                                Number(
+                                                    form.principalAmount || 0
+                                                );
 
-                                        <strong>
-                                            {Number(
-                                                selectedLoanType
-                                                    .interest ||
-                                                0
-                                            )}
-                                            %
-                                        </strong>
+                                            const rate =
+                                                Number(
+                                                    selectedLoanType.interest || 0
+                                                );
 
-                                        .
+                                            const interestAmount =
+                                                principal *
+                                                (rate / 100) *
+                                                months;
 
-                                        {form.principalAmount && (
+                                            return (
 
-                                            <>
-                                                {' '}
-                                                For ₱
-                                                {money(
-                                                    form.principalAmount
-                                                )},
-                                                total due is{' '}
+                                                <>
+                                                    <strong>
+                                                        {selectedLoanType.type}
+                                                    </strong>
 
-                                                <strong>
-                                                    ₱
-                                                    {money(
-                                                        form.totalDue
-                                                    )}
-                                                </strong>.
-                                            </>
+                                                    {' '}loan ·{' '}
 
-                                        )}
+                                                    <strong>
+                                                        {months}
+                                                    </strong>
+
+                                                    {' '}month(s) ·{' '}
+
+                                                    <strong>
+                                                        {rate}%
+                                                    </strong>
+
+                                                    {' '}monthly interest.
+
+                                                    <br />
+
+                                                    Interest:
+                                                    {' '}
+                                                    <strong>
+                                                        ₱{money(
+                                                            interestAmount
+                                                        )}
+                                                    </strong>
+
+                                                    {' '}· Total due:
+                                                    {' '}
+                                                    <strong>
+                                                        ₱{money(
+                                                            form.totalDue
+                                                        )}
+                                                    </strong>
+                                                </>
+
+                                            );
+
+                                        })()}
 
                                     </div>
 
                                 )}
-
                             </div>
 
                             <footer className="loan-modal-footer">

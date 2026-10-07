@@ -2,8 +2,14 @@ const db = require("../config/db");
 const Loaner = require("../model/Loaner");
 const Member = require("../model/Member");
 const jwt = require("jsonwebtoken");
+const Collection = require('../model/Collection');
 
 
+const getCollections = async(filter) => {
+    const result = await Collection.getCollections(filter);
+
+    return result;
+}
 // ============================================================
 // HELPER
 // ============================================================
@@ -141,6 +147,10 @@ const signupLoaner = async (
     loaner
 ) => {
 
+    if(loaner.password.length < 8){
+        throw new Error('Password must be 8 or more characters');
+    }
+
     const existing =
         await Loaner.findByUsername(
             loaner.username
@@ -167,6 +177,9 @@ const changePass = async ({
     current
 }) => {
 
+    if(newPassword.length < 8){
+        throw new Error('Password must be 8 or more characters');
+    }
     const user =
         await Loaner.findByUsername(
             username
@@ -1614,6 +1627,9 @@ module.exports = {
     deleteMember,
     getMemberHistory,
     getMemberBalance,
-    getMemberStatistics
+    getMemberStatistics,
+
+    //COLLECTIONS
+    getCollections
 
 };

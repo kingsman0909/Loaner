@@ -11,9 +11,7 @@ const Sidebar = (props) => {
         'Dashboard': 'Overview',
         'Loans': ['Applications'],
         'Borrowers': ['Members'],
-        'Transactions': ['Collections', 'Disbursements', 'Penalities & Fees'],
-        'Reports': ['Collection Report', 'Profit / Interest Report'],
-        'Settings': ['Loan Plans']
+        'Transactions': ['Collections', 'Disbursements'],
     }
 
     useEffect(()=>{

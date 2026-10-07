@@ -846,6 +846,42 @@ const getLoanTypes = async (req, res) => {
     }
 }
 
+
+//TRANSACTION - COLLECTION
+const getCollections = async (req, res) => {
+    try {
+        const { filter = 'all' } = req.query;
+
+        const allowedFilters = [
+            'all',
+            'full',
+            'partial'
+        ];
+
+        if (!allowedFilters.includes(filter)) {
+            return res.status(400).json({
+                message: 'Invalid collection filter'
+            });
+        }
+
+        const collections =
+            await authService.getCollections(filter);
+
+        return res.status(200).json(collections);
+
+    } catch (error) {
+        console.error(
+            'GET COLLECTIONS ERROR:',
+            error
+        );
+
+        return res.status(500).json({
+            message: 'Failed to fetch collections',
+            error: error.message
+        });
+    }
+};
+
 // ============================================================
 // EXPORT
 // ============================================================
@@ -875,5 +911,8 @@ module.exports = {
     deleteMember,
     getMemberHistory,
     getMemberBalance,
-    getMemberStatistics
+    getMemberStatistics,
+
+    //COLLECTIONS
+    getCollections
 };

@@ -25,7 +25,10 @@ const {
     deleteMember,
     getMemberHistory,
     getMemberBalance,
-    getMemberStatistics
+    getMemberStatistics,
+
+    //COLLECTIONS
+    getCollections
 } = require("../controllers/controller");
 
 
@@ -60,6 +63,10 @@ router.post(
     changePassword
 );
 
+//=========================================
+//TRANSACTIONS - COLLECTIONS
+//========================================
+router.get('/transactions/collections', verifyToken, getCollections);
 
 // ============================================================
 // LOANS
