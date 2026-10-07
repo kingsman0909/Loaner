@@ -367,32 +367,65 @@ const addMonths = (
     return result;
 };
 
+
+const getMinimumDueDate = releaseDate => {
+    if (!releaseDate) {
+        return '';
+    }
+
+    return formatDateOnly(
+        addMonths(releaseDate, 1)
+    );
+};
+
+const isValidDueDate = (releaseDate, dueDate) => {
+    const release = parseDateOnly(releaseDate);
+    const due = parseDateOnly(dueDate);
+
+    if (!release || !due) {
+        return false;
+    }
+
+    // Day must ALWAYS be the same
+    if (
+        release.getUTCDate() !==
+        due.getUTCDate()
+    ) {
+        return false;
+    }
+
+    // Due date must be at least 1 month later
+    const minimumDueDate =
+        addMonths(releaseDate, 1);
+
+    if (!minimumDueDate) {
+        return false;
+    }
+
+    return due >= minimumDueDate;
+};
 /*
 |--------------------------------------------------------------------------
 | FULL MONTHS BETWEEN DATES
 |--------------------------------------------------------------------------
 */
-
-const getFullMonthsBetween = (
-    startDate,
-    endDate
-) => {
-
-    const start =
-        parseDateOnly(startDate);
-
-    const end =
-        parseDateOnly(endDate);
+const getFullMonthsBetween = (startDate, endDate) => {
+    const start = parseDateOnly(startDate);
+    const end = parseDateOnly(endDate);
 
     if (!start || !end) {
         return 0;
     }
 
-    if (end <= start) {
+    const startDay = start.getUTCDate();
+    const endDay = end.getUTCDate();
+
+    // Due date must have the exact same day
+    if (startDay !== endDay) {
         return 0;
     }
 
-    let months =
+    const months =
         (
             end.getUTCFullYear() -
             start.getUTCFullYear()
@@ -402,29 +435,8 @@ const getFullMonthsBetween = (
             start.getUTCMonth()
         );
 
-    /*
-     * Check whether the final month
-     * has actually been completed.
-     */
-    const anniversary =
-        addMonths(
-            startDate,
-            months
-        );
-
-    if (
-        anniversary &&
-        anniversary > end
-    ) {
-        months--;
-    }
-
-    return Math.max(
-        0,
-        months
-    );
+    return Math.max(0, months);
 };
-
     /*
 |--------------------------------------------------------------------------
 | CALCULATE TOTAL DUE
@@ -1170,103 +1182,189 @@ const calculateTotalDue =
     |--------------------------------------------------------------------------
     */
 
-    const updateForm =
-    event => {
+    const updateForm = event => {
+    const {
+        name,
+        value
+    } = event.target;
 
-        const {
-            name,
-            value
-        } = event.target;
+    setForm(previous => {
 
-        setForm(
-            previous => {
+        const next = {
+            ...previous,
+            [name]: value
+        };
 
-                const next = {
-                    ...previous,
-                    [name]: value
-                };
+        /*
+        |--------------------------------------------------------------------------
+        | LOAN TYPE
+        |--------------------------------------------------------------------------
+        */
+
+        if (name === 'loan_type_id') {
+
+            const selectedType =
+                getLoanTypeById(value);
+
+            next.interest =
+                selectedType
+                    ? Number(
+                        selectedType.interest || 0
+                    )
+                    : '';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | INTEREST IS CONTROLLED BY LOAN TYPE
+        |--------------------------------------------------------------------------
+        */
+
+        if (name === 'interest') {
+
+            next.interest =
+                getInterestByLoanType(
+                    next.loan_type_id
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | RELEASE DATE
+        |--------------------------------------------------------------------------
+        |
+        | When release date changes:
+        | Automatically make due date exactly 1 month later.
+        |
+        | Example:
+        |
+        | 2026-10-10
+        |       ↓
+        | 2026-11-10
+        |
+        */
+
+        if (name === 'releaseDate') {
+
+            next.due_date =
+                getMinimumDueDate(value);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DUE DATE
+        |--------------------------------------------------------------------------
+        |
+        | Only the MONTH is allowed to change.
+        | The DAY is forced to match release date.
+        |
+        */
+
+        if (name === 'due_date') {
+
+            const release =
+                parseDateOnly(
+                    next.releaseDate
+                );
+
+            const selectedDue =
+                parseDateOnly(value);
+
+            if (
+                release &&
+                selectedDue
+            ) {
+
+                const releaseDay =
+                    release.getUTCDate();
+
+                const selectedYear =
+                    selectedDue.getUTCFullYear();
+
+                const selectedMonth =
+                    selectedDue.getUTCMonth();
 
                 /*
                 |--------------------------------------------------------------------------
-                | LOAN TYPE
+                | FORCE SAME DAY AS RELEASE
                 |--------------------------------------------------------------------------
                 */
 
-                if (
-                    name ===
-                    'loan_type_id'
-                ) {
+                const lastDayOfMonth =
+                    new Date(
+                        Date.UTC(
+                            selectedYear,
+                            selectedMonth + 1,
+                            0
+                        )
+                    ).getUTCDate();
 
-                    const selectedType =
-                        getLoanTypeById(
-                            value
+                /*
+                |--------------------------------------------------------------------------
+                | If release day exists in selected month,
+                | use the exact release day.
+                |
+                | Example:
+                | Release = October 31
+                | November has only 30 days
+                |
+                | We don't silently change it to Nov 30.
+                | Instead, keep the valid schedule controlled.
+                |--------------------------------------------------------------------------
+                */
+
+                if (releaseDay > lastDayOfMonth) {
+
+                    next.due_date =
+                        getMinimumDueDate(
+                            next.releaseDate
                         );
 
-                    const selectedInterest =
-                        selectedType
-                            ? Number(
-                                selectedType
-                                    .interest ||
-                                0
+                } else {
+
+                    const fixedDueDate =
+                        new Date(
+                            Date.UTC(
+                                selectedYear,
+                                selectedMonth,
+                                releaseDay
                             )
-                            : '';
-
-                    next.interest =
-                        selectedInterest;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | INTEREST IS ALWAYS CONTROLLED BY LOAN TYPE
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    name ===
-                    'interest'
-                ) {
-
-                    const selectedInterest =
-                        getInterestByLoanType(
-                            next.loan_type_id
                         );
 
-                    next.interest =
-                        selectedInterest;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | RECALCULATE TOTAL
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    name ===
-                    'principalAmount' ||
-                    name ===
-                    'loan_type_id' ||
-                    name ===
-                    'releaseDate' ||
-                    name ===
-                    'due_date' ||
-                    name ===
-                    'interest'
-                ) {
-
-                    next.totalDue =
-                        calculateTotalDue(
-                            next.principalAmount,
-                            next.loan_type_id,
-                            next.releaseDate,
-                            next.due_date
+                    next.due_date =
+                        formatDateOnly(
+                            fixedDueDate
                         );
                 }
-
-                return next;
             }
-        );
-    };
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | RECALCULATE TOTAL DUE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            name === 'principalAmount' ||
+            name === 'loan_type_id' ||
+            name === 'releaseDate' ||
+            name === 'due_date' ||
+            name === 'interest'
+        ) {
+
+            next.totalDue =
+                calculateTotalDue(
+                    next.principalAmount,
+                    next.loan_type_id,
+                    next.releaseDate,
+                    next.due_date
+                );
+        }
+
+        return next;
+    });
+};
     /*
     |--------------------------------------------------------------------------
     | SAVE LOAN
@@ -1300,32 +1398,43 @@ const calculateTotalDue =
 
             
 
+            const releaseDay =
+                release.getUTCDate();
+
+            const dueDay =
+                due.getUTCDate();
+
             const minimumDueDate =
                 addMonths(
                     form.releaseDate,
                     1
                 );
 
-            const release =
-                parseDateOnly(
-                    form.releaseDate
-                );
+            /*
+            |--------------------------------------------------------------------------
+            | SAME DAY VALIDATION
+            |--------------------------------------------------------------------------
+            */
 
-            const due =
-                parseDateOnly(
-                    form.due_date
-                );
-
-            if (!release || !due) {
+            if (releaseDay !== dueDay) {
 
                 setFormError(
-                    'Invalid release or due date.'
+                    `Due date day must always be ${releaseDay}.`
                 );
 
                 return;
             }
 
-            if (due < minimumDueDate) {
+            /*
+            |--------------------------------------------------------------------------
+            | DUE DATE CANNOT BE BEFORE ONE MONTH
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !minimumDueDate ||
+                due < minimumDueDate
+            ) {
 
                 setFormError(
                     `Due date must be at least one month after the release date. Minimum due date is ${formatDate(
@@ -1335,7 +1444,6 @@ const calculateTotalDue =
 
                 return;
             }
-
             const principal =
                 Number(
                     form.principalAmount
@@ -1418,6 +1526,15 @@ const calculateTotalDue =
                     form.releaseDate,
                     form.due_date
                 );
+
+            if (months < 1) {
+
+                setFormError(
+                    'Due date must be at least one month after the release date.'
+                );
+
+                return;
+            }
 
             const totalInterest =
                 principal *
@@ -2934,24 +3051,21 @@ const calculateTotalDue =
                                             Due Date *
                                         </span>
 
+                                        
                                         <input
                                             name="due_date"
                                             type="date"
                                             value={form.due_date}
                                             min={
                                                 form.releaseDate
-                                                    ? formatDateOnly(
-                                                        addMonths(
-                                                            form.releaseDate,
-                                                            1
-                                                        )
+                                                    ? getMinimumDueDate(
+                                                        form.releaseDate
                                                     )
                                                     : undefined
                                             }
                                             onChange={updateForm}
                                             required
                                         />
-
                                         {form.releaseDate && (
 
                                             <small>
