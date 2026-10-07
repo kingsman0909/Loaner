@@ -6,10 +6,10 @@ const createPayment = async (paymentData) => {
     try {
         await connection.beginTransaction();
 
-        // 1. Get the loan and lock it
+        // 1. Get loan and lock it
         const [loans] = await connection.query(
             `
-            SELECT id, totalDue, balance, status
+            SELECT id, totalDue, status
             FROM loans
             WHERE id = ?
             FOR UPDATE
@@ -27,8 +27,23 @@ const createPayment = async (paymentData) => {
             throw new Error('This loan is already paid or closed');
         }
 
+        // 2. Get total payments made for this loan
+        const [paymentTotals] = await connection.query(
+            `
+            SELECT COALESCE(SUM(amount_paid), 0) AS totalPaid
+            FROM payments
+            WHERE loan_id = ?
+            `,
+            [paymentData.loan_id]
+        );
+
+        const totalPaid = Number(paymentTotals[0].totalPaid);
+        const totalDue = Number(loan.totalDue);
+
+        // Current remaining balance
+        const currentBalance = totalDue - totalPaid;
+
         const amountPaid = Number(paymentData.amount_paid);
-        const currentBalance = Number(loan.balance);
 
         if (amountPaid <= 0) {
             throw new Error('Payment amount must be greater than 0');
@@ -40,7 +55,7 @@ const createPayment = async (paymentData) => {
             );
         }
 
-        // 2. Insert payment
+        // 3. Insert payment
         const [paymentResult] = await connection.query(
             `
             INSERT INTO payments
@@ -57,49 +72,42 @@ const createPayment = async (paymentData) => {
             ]
         );
 
-        // 3. Calculate new balance
+        // 4. Calculate new balance
         const newBalance = currentBalance - amountPaid;
 
-        // 4. Determine status
+        // 5. Update loan status
         const newStatus = newBalance === 0
             ? 'paid'
             : 'active';
 
-        // 5. Update loan
         await connection.query(
             `
             UPDATE loans
-            SET balance = ?,
-                status = ?
+            SET status = ?
             WHERE id = ?
             `,
             [
-                newBalance,
                 newStatus,
                 paymentData.loan_id
             ]
         );
 
-        // 6. Commit everything
+        // 6. Commit transaction
         await connection.commit();
 
         return {
             paymentId: paymentResult.insertId,
             loanId: paymentData.loan_id,
             amountPaid,
-            previousBalance: currentBalance,
-            newBalance,
+            remainingBalance: newBalance,
             status: newStatus
         };
 
     } catch (error) {
-        // Undo payment INSERT and loan UPDATE
         await connection.rollback();
-
         throw error;
 
     } finally {
-        // Return connection to pool
         connection.release();
     }
 };
