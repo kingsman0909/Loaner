@@ -226,14 +226,22 @@ const Signup = () => {
 
               <div className="input-group full">
                 <label>Source of Income</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Employment, Business, Freelance"
-                  value={sourceOfIncome}
-                  onChange={(e) => setSourceOfIncome(e.target.value)}
-                  required
-                />
-              </div>
+
+                <select
+                    value={sourceOfIncome}
+                    onChange={(e) => setSourceOfIncome(e.target.value)}
+                    required
+                >
+                    <option value="">Select source of income</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Business">Business</option>
+                    <option value="Freelance">Freelance</option>
+                    <option value="Remittance">Remittance</option>
+                    <option value="Pension">Pension</option>
+                    <option value="Commission">Commission</option>
+                    <option value="Allowance">Allowance</option>
+                </select>
+            </div>
 
             </div>
           </div>

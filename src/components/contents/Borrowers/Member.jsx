@@ -827,23 +827,24 @@ const Members = (props) => {
 
 
                                 <div className="form-group">
-
                                     <label>
                                         Source of Income
                                     </label>
 
-                                    <input
-                                        type="text"
+                                    <select
                                         name="source_of_income"
-                                        value={
-                                            form.source_of_income
-                                        }
-                                        onChange={
-                                            handleChange
-                                        }
-                                        placeholder="e.g. Salary"
-                                    />
-
+                                        value={form.source_of_income}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Select source of income</option>
+                                        <option value="Salary">Salary</option>
+                                        <option value="Business">Business</option>
+                                        <option value="Remittance">Remittance</option>
+                                        <option value="Pension">Pension</option>
+                                        <option value="Commission">Commission</option>
+                                        <option value="Freelance">Freelance</option>
+                                        <option value="Allowance">Allowance</option>
+                                    </select>
                                 </div>
 
 

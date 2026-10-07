@@ -2987,53 +2987,7 @@ const calculateTotalDue =
 
                                     </label>
 
-                                    {/* STATUS */}
-
-                                    {modal.type ===
-                                    'edit' && (
-
-                                        <label className="loan-field">
-
-                                            <span>
-                                                Status *
-                                            </span>
-
-                                            <select
-                                                name="status"
-                                                value={
-                                                    form.status
-                                                }
-                                                onChange={
-                                                    updateForm
-                                                }
-                                                required
-                                            >
-
-                                                {STATUSES.map(
-                                                    item => (
-
-                                                        <option
-                                                            key={
-                                                                item
-                                                            }
-                                                            value={
-                                                                item
-                                                            }
-                                                        >
-                                                            {label(
-                                                                item
-                                                            )}
-                                                        </option>
-
-                                                    )
-                                                )}
-
-                                            </select>
-
-                                        </label>
-
-                                    )}
-
+                                    
                                     {/* RELEASE DATE */}
 
                                     <label className="loan-field">
