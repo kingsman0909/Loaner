@@ -6,7 +6,7 @@ const createPayment = async (paymentData) => {
             values (?, ?, ?, ?, ?, ?)
         `, [
             paymentData.loan_id,
-            paymentData.amount,
+            paymentData.amount_id,
             paymentData.payment_date,
             paymentData.collected_by_id,
             paymentData.method,
