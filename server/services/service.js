@@ -603,12 +603,14 @@ const createLoan = async (
                 interest,
 
                 totalDue,
+                
+                balance,
 
                 releaseDate,
 
                 due_date
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ? ,?, ?, ?, ?, ?)
             `,
             [
 
@@ -623,6 +625,8 @@ const createLoan = async (
                 interest,
 
                 totalDue,
+
+                principalAmount,
 
                 releaseDate,
 
