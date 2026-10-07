@@ -9,6 +9,7 @@ import Active from '../contents/Loans/Active';
 import Overdue from '../contents/Loans/Overdue';
 import Closed from '../contents/Loans/Closed';
 import Applicants from '../contents/Loans/Applicants';
+import Collections from '../contents/Transactions/Collections';
 import '../../styles/homepage.css';
 import { API_BASE_URL } from '../../config';
 
@@ -105,6 +106,7 @@ const Homepage = () => {
                 {active === 'Overdue' && <Overdue />}
                 {active === 'Closed' && <Closed />}
                 {active === 'Members' && <Member />}
+                {active === 'Collections' && <Collections />}
             </div>
         </div>
       </section>

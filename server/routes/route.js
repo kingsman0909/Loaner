@@ -28,7 +28,16 @@ const {
     getMemberStatistics
 } = require("../controllers/controller");
 
+
+const {makePayment} = require("../controllers/paymentController");
+
 const verifyToken = require("../middleware/authMiddleware");
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+router.post('/payments', verifyToken, makePayment);
 
 
 // ============================================================

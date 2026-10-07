@@ -13,7 +13,7 @@ const Sidebar = (props) => {
         'Borrowers': ['Members'],
         'Transactions': ['Collections', 'Disbursements', 'Penalities & Fees'],
         'Reports': ['Collection Report', 'Profit / Interest Report'],
-        'Settings': ['Loan Plans', 'Users / Staff']
+        'Settings': ['Loan Plans']
     }
 
     useEffect(()=>{

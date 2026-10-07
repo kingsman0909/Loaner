@@ -4,20 +4,36 @@ import { API_BASE_URL } from '../../../config';
 
 const LIMIT = 20;
 
-const STATUSES = ['pending', 'active', 'overdue', 'paid', 'closed'];
+const STATUSES = [
+    'pending',
+    'active',
+    'overdue',
+    'paid',
+    'closed'
+];
 
-const getLoanId = loan => loan?.id ?? loan?.loan_id;
+const getLoanId = loan =>
+    loan?.id ?? loan?.loan_id;
 
 const getErrorMessage = (result, fallback) =>
-    result?.message || result?.error || fallback;
+    result?.message ||
+    result?.error ||
+    fallback;
 
-const Loans = () => {
+const Applicants = () => {
+
+    const loaner_data =
+        localStorage.getItem('loaner');
+        const token = localStorage.getItem('loaner_token');
+
+    const loaner_id = JSON.parse(loaner_data)?.id;
     const [loans, setLoans] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [paymentLoading, setPaymentLoading] = useState(false);
 
     const [loanType, setLoanType] = useState([]);
     const [loanTypeLoading, setLoanTypeLoading] = useState(false);
@@ -31,6 +47,21 @@ const Loans = () => {
     const [modal, setModal] = useState({
         type: '',
         loan: null
+    });
+
+    const [paymentModal, setPaymentModal] = useState({
+        open: false,
+        loan: null
+    });
+
+    const [paymentForm, setPaymentForm] = useState({
+        amount_paid: '',
+        payment_date: new Date()
+            .toISOString()
+            .split('T')[0],
+        collected_by_id: loaner_id || -1,
+        method: '',
+        type: 'partial'
     });
 
     const [form, setForm] = useState({
@@ -50,13 +81,14 @@ const Loans = () => {
     });
 
     const [formError, setFormError] = useState('');
+    const [paymentError, setPaymentError] = useState('');
 
     const requestRef = useRef(false);
     const requestIdRef = useRef(0);
     const observerRef = useRef(null);
     const debounceRef = useRef(null);
 
-    const token = localStorage.getItem('loaner_token');
+    
 
     /*
     |--------------------------------------------------------------------------
@@ -65,15 +97,23 @@ const Loans = () => {
     */
 
     const authHeaders = useCallback((json = false) => {
+
         const headers = {
-            Authorization: `Bearer ${localStorage.getItem('loaner_token') || ''}`
+            Authorization:
+                `Bearer ${
+                    localStorage.getItem(
+                        'loaner_token'
+                    ) || ''
+                }`
         };
 
         if (json) {
-            headers['Content-Type'] = 'application/json';
+            headers['Content-Type'] =
+                'application/json';
         }
 
         return headers;
+
     }, []);
 
     /*
@@ -82,39 +122,65 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const apiRequest = useCallback(async (path, options = {}) => {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
-            ...options,
-            headers: {
-                ...authHeaders(Boolean(options.body)),
-                ...options.headers
+    const apiRequest = useCallback(
+        async (path, options = {}) => {
+
+            const response =
+                await fetch(
+                    `${API_BASE_URL}${path}`,
+                    {
+                        ...options,
+
+                        headers: {
+                            ...authHeaders(
+                                Boolean(
+                                    options.body
+                                )
+                            ),
+
+                            ...options.headers
+                        }
+                    }
+                );
+
+            const text =
+                await response.text();
+
+            let result = {};
+
+            try {
+
+                result =
+                    text
+                        ? JSON.parse(text)
+                        : {};
+
+            } catch {
+
+                result = {
+                    message: text
+                };
             }
-        });
 
-        const text = await response.text();
+            if (!response.ok) {
 
-        let result = {};
+                alert(
+                    result.message ||
+                    result.status
+                );
 
-        try {
-            result = text ? JSON.parse(text) : {};
-        } catch {
-            result = {
-                message: text
-            };
-        }
+                throw new Error(
+                    getErrorMessage(
+                        result,
+                        `Request failed (${response.status})`
+                    )
+                );
+            }
 
-        if (!response.ok) {
-            alert(result.message || result.status);
-            throw new Error(
-                getErrorMessage(
-                    result,
-                    `Request failed (${response.status})`
-                )
-            );
-        }
-
-        return result;
-    }, [authHeaders]);
+            return result;
+        },
+        [authHeaders]
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -123,6 +189,7 @@ const Loans = () => {
     */
 
     const showNotice = (type, text) => {
+
         setNotice({
             type,
             text
@@ -136,6 +203,7 @@ const Loans = () => {
     */
 
     const closeModal = () => {
+
         setModal({
             type: '',
             loan: null
@@ -161,54 +229,93 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const getLoanTypeById = useCallback((id) => {
-        if (!id) return null;
+    const getLoanTypeById = useCallback(
+        id => {
 
-        return loanType.find(
-            item => Number(item.id) === Number(id)
-        ) || null;
-    }, [loanType]);
+            if (!id) {
+                return null;
+            }
 
-    const getInterestByLoanType = useCallback((loanTypeId) => {
-        const selectedType = getLoanTypeById(loanTypeId);
+            return loanType.find(
+                item =>
+                    Number(item.id) ===
+                    Number(id)
+            ) || null;
+        },
+        [loanType]
+    );
 
-        if (!selectedType) {
-            return '';
-        }
+    const getInterestByLoanType =
+        useCallback(
+            loanTypeId => {
 
-        return Number(selectedType.interest || 0);
-    }, [getLoanTypeById]);
+                const selectedType =
+                    getLoanTypeById(
+                        loanTypeId
+                    );
+
+                if (!selectedType) {
+                    return '';
+                }
+
+                return Number(
+                    selectedType.interest || 0
+                );
+            },
+            [getLoanTypeById]
+        );
 
     /*
     |--------------------------------------------------------------------------
-    | CALCULATE TOTAL
+    | CALCULATE TOTAL DUE
     |--------------------------------------------------------------------------
     */
 
-    const calculateTotalDue = useCallback((
-        principalAmount,
-        loanTypeId
-    ) => {
-        const principal = Number(principalAmount);
+    const calculateTotalDue =
+        useCallback(
+            (
+                principalAmount,
+                loanTypeId
+            ) => {
 
-        if (!Number.isFinite(principal) || principal < 0) {
-            return '';
-        }
+                const principal =
+                    Number(
+                        principalAmount
+                    );
 
-        const interest = getInterestByLoanType(loanTypeId);
+                if (
+                    !Number.isFinite(
+                        principal
+                    ) ||
+                    principal < 0
+                ) {
+                    return '';
+                }
 
-        if (interest === '') {
-            return '';
-        }
+                const interest =
+                    getInterestByLoanType(
+                        loanTypeId
+                    );
 
-        const rate = Number(interest);
+                if (interest === '') {
+                    return '';
+                }
 
-        const total = principal + (
-            principal * rate / 100
+                const rate =
+                    Number(interest);
+
+                const total =
+                    principal +
+                    (
+                        principal *
+                        rate /
+                        100
+                    );
+
+                return total.toFixed(2);
+            },
+            [getInterestByLoanType]
         );
-
-        return total.toFixed(2);
-    }, [getInterestByLoanType]);
 
     /*
     |--------------------------------------------------------------------------
@@ -217,14 +324,18 @@ const Loans = () => {
     */
 
     const normalizeLoan = loan => ({
+
         ...loan,
 
-        id: getLoanId(loan),
+        id:
+            getLoanId(loan),
 
         member_name:
             loan.member_name ||
             loan.full_name ||
-            `${loan.firstname || ''} ${loan.lastname || ''}`.trim() ||
+            `${loan.firstname || ''} ${
+                loan.lastname || ''
+            }`.trim() ||
             'Unknown member',
 
         interest_rate:
@@ -240,8 +351,14 @@ const Loans = () => {
             loan.remaining_balance ??
             Math.max(
                 0,
-                Number(loan.totalDue || 0) -
-                Number(loan.total_paid || 0)
+
+                Number(
+                    loan.totalDue || 0
+                ) -
+
+                Number(
+                    loan.total_paid || 0
+                )
             )
     });
 
@@ -251,81 +368,107 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const fetchLoanType = useCallback(async () => {
-        setLoanTypeLoading(true);
+    const fetchLoanType =
+        useCallback(
+            async () => {
 
-        try {
-            const response = await fetch(
-                `${API_BASE_URL}/loans/loantype`,
-                {
-                    method: 'GET',
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
-
-            const text = await response.text();
-
-            let result = {};
-
-            try {
-                result = text ? JSON.parse(text) : {};
-            } catch {
-                result = {
-                    message: text
-                };
-            }
-
-            if (!response.ok) {
-                throw new Error(
-                    getErrorMessage(
-                        result,
-                        'Unable to fetch loan types.'
-                    )
+                setLoanTypeLoading(
+                    true
                 );
-            }
 
-            /*
-             * Supports:
-             *
-             * [
-             *   { id: 1, type: "Daily", interest: 5 }
-             * ]
-             *
-             * or
-             *
-             * {
-             *   data: [...]
-             * }
-             */
+                try {
 
-            const rows = Array.isArray(result)
-                ? result
-                : Array.isArray(result.data)
-                    ? result.data
-                    : Array.isArray(result.loanTypes)
-                        ? result.loanTypes
-                        : [];
+                    const response =
+                        await fetch(
+                            `${API_BASE_URL}/loans/loantype`,
+                            {
+                                method: 'GET',
 
-            setLoanType(rows);
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${token}`
+                                }
+                            }
+                        );
 
-            console.log('Loan types:', rows);
+                    const text =
+                        await response.text();
 
-        } catch (error) {
-            console.error('Loan type error:', error);
+                    let result = {};
 
-            showNotice(
-                'error',
-                error.message || 'Unable to load loan types.'
-            );
+                    try {
 
-            setLoanType([]);
+                        result =
+                            text
+                                ? JSON.parse(
+                                    text
+                                )
+                                : {};
 
-        } finally {
-            setLoanTypeLoading(false);
-        }
-    }, [token]);
+                    } catch {
+
+                        result = {
+                            message: text
+                        };
+                    }
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            getErrorMessage(
+                                result,
+                                'Unable to fetch loan types.'
+                            )
+                        );
+                    }
+
+                    const rows =
+                        Array.isArray(result)
+                            ? result
+                            : Array.isArray(
+                                result.data
+                            )
+                                ? result.data
+                                : Array.isArray(
+                                    result.loanTypes
+                                )
+                                    ? result.loanTypes
+                                    : [];
+
+                    setLoanType(
+                        rows
+                    );
+
+                    console.log(
+                        'Loan types:',
+                        rows
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'Loan type error:',
+                        error
+                    );
+
+                    showNotice(
+                        'error',
+                        error.message ||
+                        'Unable to load loan types.'
+                    );
+
+                    setLoanType([]);
+
+                } finally {
+
+                    setLoanTypeLoading(
+                        false
+                    );
+                }
+
+            },
+            [token]
+        );
 
     /*
     |--------------------------------------------------------------------------
@@ -333,151 +476,210 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const fetchLoans = useCallback(async ({
-        reset = false,
-        requestOffset = 0
-    } = {}) => {
+    const fetchLoans =
+        useCallback(
+            async ({
+                reset = false,
+                requestOffset = 0
+            } = {}) => {
 
-        if (requestRef.current) {
-            return;
-        }
-
-        const requestId = ++requestIdRef.current;
-
-        requestRef.current = true;
-
-        if (reset) {
-            setLoading(true);
-        } else {
-            setLoadingMore(true);
-        }
-
-        try {
-
-            const params = new URLSearchParams({
-                limit: String(LIMIT),
-                offset: String(requestOffset)
-            });
-
-            if (search.trim()) {
-                params.set(
-                    'search',
-                    search.trim()
-                );
-            }
-
-            if (status) {
-                params.set(
-                    'status',
-                    status
-                );
-            }
-
-            const result = await apiRequest(
-                `/loans?${params}`,
-                {
-                    method: 'GET'
+                if (
+                    requestRef.current
+                ) {
+                    return;
                 }
-            );
 
-            if (requestId !== requestIdRef.current) {
-                return;
-            }
+                const requestId =
+                    ++requestIdRef.current;
 
-            const payload = result.data ?? result;
-
-            const rows = Array.isArray(payload)
-                ? payload
-                : Array.isArray(payload.data)
-                    ? payload.data
-                    : Array.isArray(payload.loans)
-                        ? payload.loans
-                        : [];
-
-            const pagination =
-                result.pagination ||
-                payload.pagination ||
-                {};
-
-            const normalized =
-                rows.map(normalizeLoan);
-
-            setLoans(previous => {
+                requestRef.current =
+                    true;
 
                 if (reset) {
-                    return normalized;
+
+                    setLoading(true);
+
+                } else {
+
+                    setLoadingMore(true);
                 }
 
-                const existing = new Set(
-                    previous.map(
-                        item => String(item.id)
-                    )
-                );
+                try {
 
-                return [
-                    ...previous,
+                    const params =
+                        new URLSearchParams({
+                            limit:
+                                String(
+                                    LIMIT
+                                ),
 
-                    ...normalized.filter(
-                        item =>
-                            !existing.has(
-                                String(item.id)
+                            offset:
+                                String(
+                                    requestOffset
+                                )
+                        });
+
+                    if (
+                        search.trim()
+                    ) {
+
+                        params.set(
+                            'search',
+                            search.trim()
+                        );
+                    }
+
+                    if (status) {
+
+                        params.set(
+                            'status',
+                            status
+                        );
+                    }
+
+                    const result =
+                        await apiRequest(
+                            `/loans?${params}`,
+                            {
+                                method: 'GET'
+                            }
+                        );
+
+                    if (
+                        requestId !==
+                        requestIdRef.current
+                    ) {
+                        return;
+                    }
+
+                    const payload =
+                        result.data ??
+                        result;
+
+                    const rows =
+                        Array.isArray(
+                            payload
+                        )
+                            ? payload
+                            : Array.isArray(
+                                payload.data
                             )
-                    )
-                ];
-            });
+                                ? payload.data
+                                : Array.isArray(
+                                    payload.loans
+                                )
+                                    ? payload.loans
+                                    : [];
 
-            const newOffset = Number(
-                pagination.nextOffset ??
-                (
-                    requestOffset +
-                    normalized.length
-                )
-            );
+                    const pagination =
+                        result.pagination ||
+                        payload.pagination ||
+                        {};
 
-            setOffset(newOffset);
+                    const normalized =
+                        rows.map(
+                            normalizeLoan
+                        );
 
-            setTotal(
-                Number(
-                    pagination.total ??
-                    normalized.length
-                )
-            );
+                    setLoans(
+                        previous => {
 
-            setHasMore(
-                pagination.hasMore ??
-                (
-                    normalized.length === LIMIT
-                )
-            );
+                            if (reset) {
+                                return normalized;
+                            }
 
-        } catch (error) {
+                            const existing =
+                                new Set(
+                                    previous.map(
+                                        item =>
+                                            String(
+                                                item.id
+                                            )
+                                    )
+                                );
 
-            if (requestId === requestIdRef.current) {
+                            return [
+                                ...previous,
 
-                showNotice(
-                    'error',
-                    error.message ||
-                    'Unable to load loans.'
-                );
-            }
+                                ...normalized.filter(
+                                    item =>
+                                        !existing.has(
+                                            String(
+                                                item.id
+                                            )
+                                        )
+                                )
+                            ];
+                        }
+                    );
 
-        } finally {
+                    const newOffset =
+                        Number(
+                            pagination.nextOffset ??
+                            (
+                                requestOffset +
+                                normalized.length
+                            )
+                        );
 
-            if (requestId === requestIdRef.current) {
+                    setOffset(
+                        newOffset
+                    );
 
-                requestRef.current = false;
+                    setTotal(
+                        Number(
+                            pagination.total ??
+                            normalized.length
+                        )
+                    );
 
-                setLoading(false);
+                    setHasMore(
+                        pagination.hasMore ??
+                        (
+                            normalized.length ===
+                            LIMIT
+                        )
+                    );
 
-                setLoadingMore(false);
-            }
-        }
+                } catch (error) {
 
-    }, [
-        apiRequest,
-        search,
-        status
-    ]);
+                    if (
+                        requestId ===
+                        requestIdRef.current
+                    ) {
+
+                        showNotice(
+                            'error',
+                            error.message ||
+                            'Unable to load loans.'
+                        );
+                    }
+
+                } finally {
+
+                    if (
+                        requestId ===
+                        requestIdRef.current
+                    ) {
+
+                        requestRef.current =
+                            false;
+
+                        setLoading(false);
+
+                        setLoadingMore(
+                            false
+                        );
+                    }
+                }
+
+            },
+            [
+                apiRequest,
+                search,
+                status
+            ]
+        );
 
     /*
     |--------------------------------------------------------------------------
@@ -508,7 +710,8 @@ const Loans = () => {
 
                 requestIdRef.current++;
 
-                requestRef.current = false;
+                requestRef.current =
+                    false;
 
                 setLoans([]);
 
@@ -524,6 +727,7 @@ const Loans = () => {
             }, 350);
 
         return () => {
+
             clearTimeout(
                 debounceRef.current
             );
@@ -541,29 +745,30 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const loadMore = useCallback(() => {
+    const loadMore =
+        useCallback(() => {
 
-        if (
-            requestRef.current ||
-            loading ||
-            loadingMore ||
-            !hasMore
-        ) {
-            return;
-        }
+            if (
+                requestRef.current ||
+                loading ||
+                loadingMore ||
+                !hasMore
+            ) {
+                return;
+            }
 
-        fetchLoans({
-            reset: false,
-            requestOffset: offset
-        });
+            fetchLoans({
+                reset: false,
+                requestOffset: offset
+            });
 
-    }, [
-        fetchLoans,
-        hasMore,
-        loading,
-        loadingMore,
-        offset
-    ]);
+        }, [
+            fetchLoans,
+            hasMore,
+            loading,
+            loadingMore,
+            offset
+        ]);
 
     /*
     |--------------------------------------------------------------------------
@@ -585,19 +790,26 @@ const Loans = () => {
                 entries => {
 
                     if (
-                        entries[0]?.isIntersecting
+                        entries[0]
+                            ?.isIntersecting
                     ) {
+
                         loadMore();
                     }
 
                 },
                 {
-                    rootMargin: '250px',
-                    threshold: 0
+                    rootMargin:
+                        '250px',
+
+                    threshold:
+                        0
                 }
             );
 
-        observer.observe(target);
+        observer.observe(
+            target
+        );
 
         return () =>
             observer.disconnect();
@@ -610,23 +822,25 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const refreshLoans = async () => {
+    const refreshLoans =
+        async () => {
 
-        requestIdRef.current++;
+            requestIdRef.current++;
 
-        requestRef.current = false;
+            requestRef.current =
+                false;
 
-        setLoans([]);
+            setLoans([]);
 
-        setOffset(0);
+            setOffset(0);
 
-        setHasMore(false);
+            setHasMore(false);
 
-        await fetchLoans({
-            reset: true,
-            requestOffset: 0
-        });
-    };
+            await fetchLoans({
+                reset: true,
+                requestOffset: 0
+            });
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -703,7 +917,10 @@ const Loans = () => {
 
         const selectedInterest =
             selectedLoanType
-                ? Number(selectedLoanType.interest || 0)
+                ? Number(
+                    selectedLoanType
+                        .interest || 0
+                )
                 : Number(
                     loan.interest_rate ??
                     loan.interest ??
@@ -770,93 +987,87 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const updateForm = event => {
+    const updateForm =
+        event => {
 
-        const {
-            name,
-            value
-        } = event.target;
+            const {
+                name,
+                value
+            } = event.target;
 
-        setForm(previous => {
+            setForm(
+                previous => {
 
-            const next = {
-                ...previous,
-                [name]: value
-            };
+                    const next = {
+                        ...previous,
+                        [name]: value
+                    };
 
-            /*
-             * LOAN TYPE CHANGED
-             *
-             * Get interest directly from:
-             *
-             * loan_type.id
-             *
-             * NOT:
-             *
-             * loanType[value - 1]
-             */
+                    if (
+                        name ===
+                        'loan_type_id'
+                    ) {
 
-            if (name === 'loan_type_id') {
+                        const selectedType =
+                            getLoanTypeById(
+                                value
+                            );
 
-                const selectedType =
-                    getLoanTypeById(value);
+                        const selectedInterest =
+                            selectedType
+                                ? Number(
+                                    selectedType
+                                        .interest ||
+                                    0
+                                )
+                                : '';
 
-                const selectedInterest =
-                    selectedType
-                        ? Number(
-                            selectedType.interest || 0
-                        )
-                        : '';
+                        next.interest =
+                            selectedInterest;
 
-                next.interest =
-                    selectedInterest;
+                        next.totalDue =
+                            calculateTotalDue(
+                                next.principalAmount,
+                                value
+                            );
+                    }
 
-                next.totalDue =
-                    calculateTotalDue(
-                        next.principalAmount,
-                        value
-                    );
-            }
+                    if (
+                        name ===
+                        'principalAmount'
+                    ) {
 
-            /*
-             * PRINCIPAL CHANGED
-             */
+                        next.totalDue =
+                            calculateTotalDue(
+                                value,
+                                next.loan_type_id
+                            );
+                    }
 
-            if (name === 'principalAmount') {
+                    if (
+                        name ===
+                        'interest'
+                    ) {
 
-                next.totalDue =
-                    calculateTotalDue(
-                        value,
-                        next.loan_type_id
-                    );
-            }
+                        const selectedInterest =
+                            getInterestByLoanType(
+                                next.loan_type_id
+                            );
 
-            /*
-             * NEVER allow manual interest
-             * changes because interest comes
-             * from loan_type.
-             */
+                        next.interest =
+                            selectedInterest;
 
-            if (name === 'interest') {
+                        next.totalDue =
+                            calculateTotalDue(
+                                next.principalAmount,
+                                next.loan_type_id
+                            );
+                    }
 
-                const selectedInterest =
-                    getInterestByLoanType(
-                        next.loan_type_id
-                    );
-
-                next.interest =
-                    selectedInterest;
-
-                next.totalDue =
-                    calculateTotalDue(
-                        next.principalAmount,
-                        next.loan_type_id
-                    );
-            }
-
-            return next;
-        });
-    };
+                    return next;
+                }
+            );
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -864,204 +1075,201 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const saveLoan = async event => {
+    const saveLoan =
+        async event => {
 
-        event.preventDefault();
+            event.preventDefault();
 
-        setFormError('');
+            setFormError('');
 
-        const principal =
-            Number(
-                form.principalAmount
-            );
+            const principal =
+                Number(
+                    form.principalAmount
+                );
 
-        const memberId =
-            Number(
-                form.member_id
-            );
+            const memberId =
+                Number(
+                    form.member_id
+                );
 
-        const loanTypeId =
-            Number(
-                form.loan_type_id
-            );
+            const loanTypeId =
+                Number(
+                    form.loan_type_id
+                );
 
-        /*
-         * GET THE REAL LOAN TYPE
-         */
+            const selectedLoanType =
+                getLoanTypeById(
+                    loanTypeId
+                );
 
-        const selectedLoanType =
-            getLoanTypeById(
-                loanTypeId
-            );
+            if (
+                !Number.isInteger(
+                    memberId
+                ) ||
+                memberId <= 0
+            ) {
 
-        if (
-            !Number.isInteger(memberId) ||
-            memberId <= 0
-        ) {
+                setFormError(
+                    'Enter a valid member ID.'
+                );
 
-            setFormError(
-                'Enter a valid member ID.'
-            );
+                return;
+            }
 
-            return;
-        }
+            if (
+                !Number.isInteger(
+                    loanTypeId
+                ) ||
+                loanTypeId <= 0
+            ) {
 
-        if (
-            !Number.isInteger(loanTypeId) ||
-            loanTypeId <= 0
-        ) {
+                setFormError(
+                    'Please select a valid loan type.'
+                );
 
-            setFormError(
-                'Please select a valid loan type.'
-            );
+                return;
+            }
 
-            return;
-        }
+            if (!selectedLoanType) {
 
-        if (!selectedLoanType) {
+                setFormError(
+                    'Selected loan type does not exist.'
+                );
 
-            setFormError(
-                'Selected loan type does not exist.'
-            );
+                return;
+            }
 
-            return;
-        }
+            if (
+                !Number.isFinite(
+                    principal
+                ) ||
+                principal <= 0
+            ) {
 
-        if (
-            !Number.isFinite(principal) ||
-            principal <= 0
-        ) {
+                setFormError(
+                    'Principal must be greater than zero.'
+                );
 
-            setFormError(
-                'Principal must be greater than zero.'
-            );
+                return;
+            }
 
-            return;
-        }
+            const interest =
+                Number(
+                    selectedLoanType
+                        .interest || 0
+                );
 
-        /*
-         * INTEREST MUST COME FROM DATABASE
-         */
-
-        const interest =
-            Number(
-                selectedLoanType.interest || 0
-            );
-
-        const calculatedTotal =
-            Number(
-                (
-                    principal +
+            const calculatedTotal =
+                Number(
                     (
-                        principal *
-                        interest /
-                        100
-                    )
-                ).toFixed(2)
-            );
-
-        if (!form.due_date) {
-
-            setFormError(
-                'Please select a due date.'
-            );
-
-            return;
-        }
-
-        const payload = {
-
-            member_id:
-                memberId,
-
-            loan_type_id:
-                loanTypeId,
-
-            principalAmount:
-                principal,
-
-            /*
-             * Derived from loan_type.
-             */
-            interest:
-                interest,
-
-            /*
-             * Derived from principal + loan type interest.
-             */
-            totalDue:
-                calculatedTotal,
-
-            releaseDate:
-                form.releaseDate ||
-                null,
-
-            due_date:
-                form.due_date,
-
-            status:
-                modal.type === 'edit'
-                    ? form.status
-                    : 'active'
-        };
-
-        console.log(
-            'Saving loan:',
-            payload
-        );
-
-        setSaving(true);
-
-        try {
-
-            const isEdit =
-                modal.type === 'edit';
-
-            const path =
-                isEdit
-                    ? `/loans/${encodeURIComponent(
-                        getLoanId(modal.loan)
-                    )}`
-                    : '/loans';
-
-            await apiRequest(
-                path,
-                {
-                    method:
-                        isEdit
-                            ? 'PUT'
-                            : 'POST',
-
-                    body:
-                        JSON.stringify(
-                            payload
+                        principal +
+                        (
+                            principal *
+                            interest /
+                            100
                         )
-                }
+                    ).toFixed(2)
+                );
+
+            if (!form.due_date) {
+
+                setFormError(
+                    'Please select a due date.'
+                );
+
+                return;
+            }
+
+            const payload = {
+
+                member_id:
+                    memberId,
+
+                loan_type_id:
+                    loanTypeId,
+
+                principalAmount:
+                    principal,
+
+                interest:
+                    interest,
+
+                totalDue:
+                    calculatedTotal,
+
+                releaseDate:
+                    form.releaseDate ||
+                    null,
+
+                due_date:
+                    form.due_date,
+
+                status:
+                    modal.type === 'edit'
+                        ? form.status
+                        : 'active'
+            };
+
+            console.log(
+                'Saving loan:',
+                payload
             );
 
-            closeModal();
+            setSaving(true);
 
-            showNotice(
-                'success',
-                isEdit
-                    ? 'Loan updated successfully.'
-                    : 'Loan created successfully.'
-            );
+            try {
 
-            await refreshLoans();
+                const isEdit =
+                    modal.type ===
+                    'edit';
 
-        } catch (error) {
+                const path =
+                    isEdit
+                        ? `/loans/${encodeURIComponent(
+                            getLoanId(
+                                modal.loan
+                            )
+                        )}`
+                        : '/loans';
 
-            setFormError(
-                error.message ||
-                'Unable to save the loan.'
-            );
+                await apiRequest(
+                    path,
+                    {
+                        method:
+                            isEdit
+                                ? 'PUT'
+                                : 'POST',
 
-        } finally {
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
 
-            setSaving(false);
-        }
-    };
+                closeModal();
+
+                showNotice(
+                    'success',
+                    isEdit
+                        ? 'Loan updated successfully.'
+                        : 'Loan created successfully.'
+                );
+
+                await refreshLoans();
+
+            } catch (error) {
+
+                setFormError(
+                    error.message ||
+                    'Unable to save the loan.'
+                );
+
+            } finally {
+
+                setSaving(false);
+            }
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -1069,49 +1277,428 @@ const Loans = () => {
     |--------------------------------------------------------------------------
     */
 
-    const deleteLoan = async () => {
+    const deleteLoan =
+        async () => {
 
-        const id =
-            getLoanId(
-                modal.loan
-            );
+            const id =
+                getLoanId(
+                    modal.loan
+                );
 
-        if (!id) {
-            return;
-        }
+            if (!id) {
+                return;
+            }
 
-        setDeleting(true);
+            setDeleting(true);
 
-        try {
+            try {
 
-            await apiRequest(
-                `/loans/${encodeURIComponent(id)}`,
-                {
-                    method: 'DELETE'
+                await apiRequest(
+                    `/loans/${encodeURIComponent(id)}`,
+                    {
+                        method:
+                            'DELETE'
+                    }
+                );
+
+                closeModal();
+
+                showNotice(
+                    'success',
+                    'Loan deleted successfully.'
+                );
+
+                await refreshLoans();
+
+            } catch (error) {
+
+                setFormError(
+                    error.message ||
+                    'Unable to delete the loan.'
+                );
+
+            } finally {
+
+                setDeleting(false);
+            }
+        };
+
+    /*
+    |--------------------------------------------------------------------------
+    | PAYMENT MODAL
+    |--------------------------------------------------------------------------
+    */
+
+    const closePaymentModal =
+        () => {
+
+            if (paymentLoading) {
+                return;
+            }
+
+            setPaymentModal({
+                open: false,
+                loan: null
+            });
+
+            setPaymentForm({
+                amount_paid: '',
+                payment_date:
+                    new Date()
+                        .toISOString()
+                        .split('T')[0],
+                collected_by_id: loaner_id || -1,
+                method: '',
+                type: 'partial'
+            });
+
+            setPaymentError('');
+        };
+
+    /*
+    |--------------------------------------------------------------------------
+    | OPEN PAYMENT MODAL
+    |--------------------------------------------------------------------------
+    */
+
+    const openPaymentModal =
+        loan => {
+
+            const remaining =
+                Number(
+                    loan.remaining_balance ||
+                    0
+                );
+
+            if (remaining <= 0) {
+
+                showNotice(
+                    'error',
+                    'This loan has no remaining balance.'
+                );
+
+                return;
+            }
+
+            setPaymentForm({
+                amount_paid: '',
+                payment_date:
+                    new Date()
+                        .toISOString()
+                        .split('T')[0],
+                collected_by_id: loaner_id || -1,
+                method: '',
+                type: 'partial'
+            });
+
+            setPaymentError('');
+
+            setPaymentModal({
+                open: true,
+                loan
+            });
+        };
+
+    /*
+    |--------------------------------------------------------------------------
+    | PAYMENT FORM UPDATE
+    |--------------------------------------------------------------------------
+    */
+
+    const updatePaymentForm =
+        event => {
+
+            const {
+                name,
+                value
+            } = event.target;
+
+            setPaymentForm(
+                previous => {
+
+                    const next = {
+                        ...previous,
+                        [name]: value
+                    };
+
+                    if (
+                        name ===
+                        'amount_paid'
+                    ) {
+
+                        const amount =
+                            Number(value);
+
+                        const remaining =
+                            Number(
+                                paymentModal
+                                    .loan
+                                    ?.remaining_balance ||
+                                0
+                            );
+
+                        next.type =
+                            Number.isFinite(
+                                amount
+                            ) &&
+                            amount > 0 &&
+                            amount ===
+                                remaining
+                                ? 'full'
+                                : 'partial';
+                    }
+
+                    return next;
                 }
             );
+        };
 
-            closeModal();
+    /*
+    |--------------------------------------------------------------------------
+    | MAKE PAYMENT
+    |--------------------------------------------------------------------------
+    */
 
-            showNotice(
-                'success',
-                'Loan deleted successfully.'
+    const makePayment =
+        async event => {
+
+            event.preventDefault();
+            setPaymentError('');
+
+            const loan =
+                paymentModal.loan;
+            console.log(loaner_id)
+            if (!loan) {
+
+                setPaymentError(
+                    'No loan selected.'
+                );
+                return;
+            }
+
+            const loanId =
+                getLoanId(loan);
+
+            const amount =
+                Number(
+                    paymentForm.amount_paid
+                );
+
+            const remaining =
+                Number(
+                    loan.remaining_balance ||
+                    0
+                );
+
+            const collectedById =
+                Number(
+                    paymentForm
+                        .collected_by_id
+                );
+
+            if (!loanId) {
+
+                setPaymentError(
+                    'Invalid loan ID.'
+                );
+
+                return;
+            }
+
+            if (
+                !Number.isInteger(
+                    amount
+                ) ||
+                amount <= 0
+            ) {
+
+                setPaymentError(
+                    'Payment amount must be a whole number greater than zero.'
+                );
+
+                return;
+            }
+
+            if (
+                amount > remaining
+            ) {
+
+                setPaymentError(
+                    `Payment cannot exceed the remaining balance of ₱${money(
+                        remaining
+                    )}.`
+                );
+
+                return;
+            }
+
+            if (
+                !paymentForm.payment_date
+            ) {
+
+                setPaymentError(
+                    'Please select a payment date.'
+                );
+
+                return;
+            }
+
+            if (
+                !Number.isInteger(
+                    loaner_id
+                ) ||
+                loaner_id <= 0
+            ) {
+
+                setPaymentError(
+                    'Error in collector ID double check ID first'
+                );
+
+                return;
+            }
+
+            const paymentType =
+                amount === remaining
+                    ? 'full'
+                    : 'partial';
+
+            const payload = {
+
+                loan_id:
+                    Number(loanId),
+
+                amount_paid:
+                    amount,
+
+                payment_date:
+                    paymentForm
+                        .payment_date,
+
+                collected_by_id:
+                    loaner_id,
+
+                method:
+                    paymentForm.method ||
+                    null,
+
+                type:
+                    paymentType
+            };
+
+            console.log(
+                'Creating payment:',
+                payload
             );
 
-            await refreshLoans();
+            setPaymentLoading(true);
 
-        } catch (error) {
+            try {
 
-            setFormError(
-                error.message ||
-                'Unable to delete the loan.'
-            );
+                /*
+                 * =====================================================
+                 * PAYMENT API URL
+                 * =====================================================
+                 *
+                 * CHANGE THIS ONLY.
+                 *
+                 * Example:
+                 *
+                 * const PAYMENT_API_URL =
+                 *     `${API_BASE_URL}/payments`;
+                 *
+                 */
 
-        } finally {
+                console.log(payload);
+                const PAYMENT_API_URL =
+                    `${API_BASE_URL}/payments`;
 
-            setDeleting(false);
-        }
-    };
+                const response =
+                    await fetch(
+                        PAYMENT_API_URL,
+                        {
+                            method:
+                                'POST',
+
+                            headers: {
+                                'Content-Type':
+                                    'application/json',
+
+                                Authorization:
+                                    `Bearer ${
+                                        localStorage.getItem(
+                                            'loaner_token'
+                                        ) || ''
+                                    }`
+                            },
+
+                            body:
+                                JSON.stringify(
+                                    payload
+                                )
+                        }
+                    );
+
+                const text =
+                    await response.text();
+
+                let result = {};
+
+                try {
+
+                    result =
+                        text
+                            ? JSON.parse(
+                                text
+                            )
+                            : {};
+
+                } catch {
+
+                    result = {
+                        message: text
+                    };
+                }
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        getErrorMessage(
+                            result,
+                            `Payment failed (${response.status})`
+                        )
+                    );
+                }
+
+                closePaymentModal();
+
+                await refreshLoans();
+
+                showNotice(
+                    'success',
+                    `Payment of ₱${money(
+                        amount
+                    )} recorded successfully.`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Payment error:',
+                    error
+                );
+
+                setPaymentError(
+                    error.message ||
+                    'Unable to process payment.'
+                );
+
+            } finally {
+
+                setPaymentLoading(
+                    false
+                );
+            }
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -1125,47 +1712,54 @@ const Loans = () => {
         ).toLocaleString(
             'en-PH',
             {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+                minimumFractionDigits:
+                    2,
+
+                maximumFractionDigits:
+                    2
             }
         );
 
-    const formatDate = value => {
+    const formatDate =
+        value => {
 
-        if (!value) {
-            return '—';
-        }
+            if (!value) {
+                return '—';
+            }
 
-        const parsed =
-            new Date(
-                `${dateInput(value)}T00:00:00`
+            const parsed =
+                new Date(
+                    `${dateInput(
+                        value
+                    )}T00:00:00`
+                );
+
+            if (
+                Number.isNaN(
+                    parsed.getTime()
+                )
+            ) {
+                return '—';
+            }
+
+            return parsed.toLocaleDateString(
+                'en-PH',
+                {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }
             );
+        };
 
-        if (
-            Number.isNaN(
-                parsed.getTime()
-            )
-        ) {
-            return '—';
-        }
-
-        return parsed.toLocaleDateString(
-            'en-PH',
-            {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            }
-        );
-    };
-
-    const label = value =>
-        value
-            ? value
-                .charAt(0)
-                .toUpperCase() +
-                value.slice(1)
-            : 'Unknown';
+    const label =
+        value =>
+            value
+                ? value
+                    .charAt(0)
+                    .toUpperCase() +
+                    value.slice(1)
+                : 'Unknown';
 
     /*
     |--------------------------------------------------------------------------
@@ -1185,6 +1779,7 @@ const Loans = () => {
     */
 
     return (
+
         <main className="loans-page">
 
             {/* HEADER */}
@@ -1224,9 +1819,14 @@ const Loans = () => {
 
                     <button
                         className="loan-btn loan-btn-primary"
-                        onClick={openCreate}
+                        onClick={
+                            openCreate
+                        }
                     >
-                        <span>＋</span>
+                        <span>
+                            ＋
+                        </span>
+
                         New Loan
                     </button>
 
@@ -1314,23 +1914,29 @@ const Loans = () => {
                         All statuses
                     </option>
 
-                    {STATUSES.map(item => (
+                    {STATUSES.map(
+                        item => (
 
-                        <option
-                            key={item}
-                            value={item}
-                        >
-                            {label(item)}
-                        </option>
+                            <option
+                                key={item}
+                                value={item}
+                            >
+                                {label(item)}
+                            </option>
 
-                    ))}
+                        )
+                    )}
 
                 </select>
 
                 <button
                     className="loan-btn loan-btn-secondary"
-                    onClick={refreshLoans}
-                    disabled={loading}
+                    onClick={
+                        refreshLoans
+                    }
+                    disabled={
+                        loading
+                    }
                 >
                     ↻ Refresh
                 </button>
@@ -1390,7 +1996,8 @@ const Loans = () => {
                             </h3>
 
                             <p>
-                                {search || status
+                                {search ||
+                                status
                                     ? 'Try changing your search or status filter.'
                                     : 'Create your first loan using the New Loan button.'
                                 }
@@ -1401,7 +2008,9 @@ const Loans = () => {
 
                                 <button
                                     className="loan-btn loan-btn-primary"
-                                    onClick={openCreate}
+                                    onClick={
+                                        openCreate
+                                    }
                                 >
                                     Create a loan
                                 </button>
@@ -1460,152 +2069,204 @@ const Loans = () => {
 
                             <tbody>
 
-                                {loans.map(loan => (
+                                {loans.map(
+                                    loan => (
 
-                                    <tr
-                                        key={loan.id}
-                                    >
+                                        <tr
+                                            key={
+                                                loan.id
+                                            }
+                                        >
 
-                                        <td>
+                                            <td>
 
-                                            <div className="loan-member-cell">
+                                                <div className="loan-member-cell">
 
-                                                <span className="loan-avatar">
+                                                    <span className="loan-avatar">
 
-                                                    {(loan.member_name || 'M')
-                                                        .trim()
-                                                        .charAt(0)
-                                                        .toUpperCase()}
-
-                                                </span>
-
-                                                <div>
-
-                                                    <strong>
-                                                        {loan.member_name}
-                                                    </strong>
-
-                                                    <span>
-
-                                                        Loan #{loan.id}
-
-                                                        {loan.member_contact
-                                                            ? ` · ${loan.member_contact}`
-                                                            : ''
-                                                        }
+                                                        {(
+                                                            loan.member_name ||
+                                                            'M'
+                                                        )
+                                                            .trim()
+                                                            .charAt(
+                                                                0
+                                                            )
+                                                            .toUpperCase()}
 
                                                     </span>
 
+                                                    <div>
+
+                                                        <strong>
+                                                            {
+                                                                loan.member_name
+                                                            }
+                                                        </strong>
+
+                                                        <span>
+
+                                                            Loan #
+                                                            {
+                                                                loan.id
+                                                            }
+
+                                                            {
+                                                                loan.member_contact
+                                                                    ? ` · ${loan.member_contact}`
+                                                                    : ''
+                                                            }
+
+                                                        </span>
+
+                                                    </div>
+
                                                 </div>
 
-                                            </div>
+                                            </td>
 
-                                        </td>
+                                            <td>
+                                                {
+                                                    loan.loan_type ||
+                                                    '—'
+                                                }
+                                            </td>
 
-                                        <td>
-                                            {loan.loan_type || '—'}
-                                        </td>
-
-                                        <td>
-                                            ₱{money(
-                                                loan.principalAmount
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            {Number(
-                                                loan.interest_rate || 0
-                                            )}%
-                                        </td>
-
-                                        <td className="loan-money">
-                                            ₱{money(
-                                                loan.totalDue
-                                            )}
-                                        </td>
-
-                                        <td className="loan-balance">
-                                            ₱{money(
-                                                loan.remaining_balance
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            {formatDate(
-                                                loan.due_date
-                                            )}
-                                        </td>
-
-                                        <td>
-
-                                            <span
-                                                className={`loan-status ${String(
-                                                    loan.status ||
-                                                    'pending'
-                                                ).toLowerCase()}`}
-                                            >
-                                                {label(
-                                                    loan.status
+                                            <td>
+                                                ₱
+                                                {money(
+                                                    loan.principalAmount
                                                 )}
-                                            </span>
+                                            </td>
 
-                                        </td>
+                                            <td>
+                                                {Number(
+                                                    loan.interest_rate ||
+                                                    0
+                                                )}
+                                                %
+                                            </td>
 
-                                        <td>
+                                            <td className="loan-money">
+                                                ₱
+                                                {money(
+                                                    loan.totalDue
+                                                )}
+                                            </td>
 
-                                            <div className="loan-row-actions">
+                                            <td className="loan-balance">
+                                                ₱
+                                                {money(
+                                                    loan.remaining_balance
+                                                )}
+                                            </td>
 
-                                                <button
-                                                    className="loan-icon-btn"
-                                                    title="View loan"
-                                                    aria-label="View loan"
-                                                    onClick={() =>
-                                                        openView(
-                                                            loan
-                                                        )
-                                                    }
+                                            <td>
+                                                {formatDate(
+                                                    loan.due_date
+                                                )}
+                                            </td>
+
+                                            <td>
+
+                                                <span
+                                                    className={`loan-status ${String(
+                                                        loan.status ||
+                                                        'pending'
+                                                    ).toLowerCase()}`}
                                                 >
-                                                    ↗
-                                                </button>
+                                                    {label(
+                                                        loan.status
+                                                    )}
+                                                </span>
 
-                                                <button
-                                                    className="loan-icon-btn"
-                                                    title="Edit loan"
-                                                    aria-label="Edit loan"
-                                                    onClick={() =>
-                                                        openEdit(
-                                                            loan
-                                                        )
-                                                    }
-                                                >
-                                                    ✎
-                                                </button>
+                                            </td>
 
-                                                <button
-                                                    className="loan-icon-btn danger"
-                                                    title="Delete loan"
-                                                    aria-label="Delete loan"
-                                                    onClick={() => {
+                                            <td>
 
-                                                        setFormError('');
+                                                <div className="loan-row-actions">
 
-                                                        setModal({
-                                                            type: 'delete',
-                                                            loan
-                                                        });
+                                                    {/* VIEW */}
 
-                                                    }}
-                                                >
-                                                    ⌫
-                                                </button>
+                                                    <button
+                                                        className="loan-icon-btn"
+                                                        title="View loan"
+                                                        aria-label="View loan"
+                                                        onClick={() =>
+                                                            openView(
+                                                                loan
+                                                            )
+                                                        }
+                                                    >
+                                                        ↗
+                                                    </button>
 
-                                            </div>
+                                                    {/* PAYMENT */}
 
-                                        </td>
+                                                    <button
+                                                        className="loan-icon-btn payment"
+                                                        title="Make payment"
+                                                        aria-label="Make payment"
+                                                        onClick={() =>
+                                                            openPaymentModal(
+                                                                loan
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            Number(
+                                                                loan.remaining_balance ||
+                                                                0
+                                                            ) <= 0
+                                                        }
+                                                    >
+                                                        ₱
+                                                    </button>
 
-                                    </tr>
+                                                    {/* EDIT */}
 
-                                ))}
+                                                    <button
+                                                        className="loan-icon-btn"
+                                                        title="Edit loan"
+                                                        aria-label="Edit loan"
+                                                        onClick={() =>
+                                                            openEdit(
+                                                                loan
+                                                            )
+                                                        }
+                                                    >
+                                                        ✎
+                                                    </button>
+
+                                                    {/* DELETE */}
+
+                                                    <button
+                                                        className="loan-icon-btn danger"
+                                                        title="Delete loan"
+                                                        aria-label="Delete loan"
+                                                        onClick={() => {
+
+                                                            setFormError('');
+
+                                                            setModal({
+                                                                type:
+                                                                    'delete',
+
+                                                                loan
+                                                            });
+
+                                                        }}
+                                                    >
+                                                        ⌫
+                                                    </button>
+
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+
+                                    )
+                                )}
 
                             </tbody>
 
@@ -1636,8 +2297,12 @@ const Loans = () => {
 
                         <button
                             className="loan-btn loan-btn-secondary"
-                            disabled={loadingMore}
-                            onClick={loadMore}
+                            disabled={
+                                loadingMore
+                            }
+                            onClick={
+                                loadMore
+                            }
                         >
                             {loadingMore
                                 ? 'Loading…'
@@ -1681,6 +2346,7 @@ const Loans = () => {
                             event.currentTarget &&
                             !saving
                         ) {
+
                             closeModal();
                         }
 
@@ -1700,7 +2366,8 @@ const Loans = () => {
 
                                 <span className="loans-eyebrow">
 
-                                    {modal.type === 'edit'
+                                    {modal.type ===
+                                    'edit'
                                         ? 'UPDATE RECORD'
                                         : 'NEW RECORD'
                                     }
@@ -1709,7 +2376,8 @@ const Loans = () => {
 
                                 <h2 id="loan-form-title">
 
-                                    {modal.type === 'edit'
+                                    {modal.type ===
+                                    'edit'
                                         ? 'Edit Loan'
                                         : 'Create Loan'
                                     }
@@ -1724,8 +2392,12 @@ const Loans = () => {
 
                             <button
                                 className="loan-modal-close"
-                                onClick={closeModal}
-                                disabled={saving}
+                                onClick={
+                                    closeModal
+                                }
+                                disabled={
+                                    saving
+                                }
                                 aria-label="Close modal"
                             >
                                 ×
@@ -1734,7 +2406,9 @@ const Loans = () => {
                         </header>
 
                         <form
-                            onSubmit={saveLoan}
+                            onSubmit={
+                                saveLoan
+                            }
                         >
 
                             <div className="loan-modal-body">
@@ -1762,8 +2436,12 @@ const Loans = () => {
                                             type="number"
                                             min="1"
                                             step="1"
-                                            value={form.member_id}
-                                            onChange={updateForm}
+                                            value={
+                                                form.member_id
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
                                             required
                                         />
 
@@ -1779,8 +2457,12 @@ const Loans = () => {
 
                                         <select
                                             name="loan_type_id"
-                                            value={form.loan_type_id}
-                                            onChange={updateForm}
+                                            value={
+                                                form.loan_type_id
+                                            }
+                                            onChange={
+                                                updateForm
+                                            }
                                             required
                                             disabled={
                                                 loanTypeLoading ||
@@ -1795,22 +2477,34 @@ const Loans = () => {
                                                 }
                                             </option>
 
-                                            {loanType.map(type => (
+                                            {loanType.map(
+                                                type => (
 
-                                                <option
-                                                    key={type.id}
-                                                    value={type.id}
-                                                >
+                                                    <option
+                                                        key={
+                                                            type.id
+                                                        }
+                                                        value={
+                                                            type.id
+                                                        }
+                                                    >
 
-                                                    {type.type}
-                                                    {' — '}
-                                                    {Number(
-                                                        type.interest || 0
-                                                    )}%
+                                                        {
+                                                            type.type
+                                                        }
 
-                                                </option>
+                                                        {' — '}
 
-                                            ))}
+                                                        {Number(
+                                                            type.interest ||
+                                                            0
+                                                        )}
+                                                        %
+
+                                                    </option>
+
+                                                )
+                                            )}
 
                                         </select>
 
@@ -1820,10 +2514,13 @@ const Loans = () => {
 
                                                 Interest:
                                                 {' '}
+
                                                 <strong>
                                                     {Number(
-                                                        selectedLoanType.interest || 0
-                                                    )}%
+                                                        selectedLoanType.interest ||
+                                                        0
+                                                    )}
+                                                    %
                                                 </strong>
 
                                             </small>
@@ -1905,42 +2602,51 @@ const Loans = () => {
 
                                     {/* STATUS */}
 
-                                    {modal.type === 'edit' &&
-                                    <label className="loan-field">
+                                    {modal.type ===
+                                    'edit' && (
 
-                                        <span>
-                                            Status *
-                                        </span>
+                                        <label className="loan-field">
 
-                                        <select
-                                            name="status"
-                                            value={
-                                                form.status
-                                            }
-                                            onChange={
-                                                updateForm
-                                            }
-                                            required
-                                        >
+                                            <span>
+                                                Status *
+                                            </span>
 
-                                            {STATUSES.map(item => (
+                                            <select
+                                                name="status"
+                                                value={
+                                                    form.status
+                                                }
+                                                onChange={
+                                                    updateForm
+                                                }
+                                                required
+                                            >
 
-                                                <option
-                                                    key={item}
-                                                    value={item}
-                                                >
-                                                    {label(item)}
-                                                </option>
+                                                {STATUSES.map(
+                                                    item => (
 
-                                            ))}
+                                                        <option
+                                                            key={
+                                                                item
+                                                            }
+                                                            value={
+                                                                item
+                                                            }
+                                                        >
+                                                            {label(
+                                                                item
+                                                            )}
+                                                        </option>
 
-                                        </select>
+                                                    )
+                                                )}
 
-                                    </label>
+                                            </select>
 
-                                    
+                                        </label>
 
-                                    }
+                                    )}
+
                                     {/* RELEASE DATE */}
 
                                     <label className="loan-field">
@@ -1986,14 +2692,14 @@ const Loans = () => {
 
                                 </div>
 
-                                {/* SELECTED TYPE SUMMARY */}
-
                                 {selectedLoanType && (
 
                                     <div className="loan-form-hint">
 
                                         <strong>
-                                            {selectedLoanType.type}
+                                            {
+                                                selectedLoanType.type
+                                            }
                                         </strong>
 
                                         {' '}loan selected.
@@ -2002,8 +2708,11 @@ const Loans = () => {
 
                                         <strong>
                                             {Number(
-                                                selectedLoanType.interest || 0
-                                            )}%
+                                                selectedLoanType
+                                                    .interest ||
+                                                0
+                                            )}
+                                            %
                                         </strong>
 
                                         .
@@ -2039,8 +2748,12 @@ const Loans = () => {
                                 <button
                                     type="button"
                                     className="loan-btn loan-btn-secondary"
-                                    onClick={closeModal}
-                                    disabled={saving}
+                                    onClick={
+                                        closeModal
+                                    }
+                                    disabled={
+                                        saving
+                                    }
                                 >
                                     Cancel
                                 </button>
@@ -2057,7 +2770,8 @@ const Loans = () => {
 
                                     {saving
                                         ? 'Saving…'
-                                        : modal.type === 'edit'
+                                        : modal.type ===
+                                          'edit'
                                             ? 'Save Changes'
                                             : 'Create Loan'
                                     }
@@ -2089,6 +2803,7 @@ const Loans = () => {
                             event.target ===
                             event.currentTarget
                         ) {
+
                             closeModal();
                         }
 
@@ -2120,14 +2835,19 @@ const Loans = () => {
                                 </h2>
 
                                 <p>
-                                    {modal.loan.member_name}
+                                    {
+                                        modal.loan
+                                            .member_name
+                                    }
                                 </p>
 
                             </div>
 
                             <button
                                 className="loan-modal-close"
-                                onClick={closeModal}
+                                onClick={
+                                    closeModal
+                                }
                                 aria-label="Close modal"
                             >
                                 ×
@@ -2146,7 +2866,8 @@ const Loans = () => {
                                 <strong>
                                     ₱
                                     {money(
-                                        modal.loan.remaining_balance
+                                        modal.loan
+                                            .remaining_balance
                                     )}
                                 </strong>
 
@@ -2171,7 +2892,10 @@ const Loans = () => {
                                     </span>
 
                                     <strong>
-                                        {modal.loan.member_name}
+                                        {
+                                            modal.loan
+                                                .member_name
+                                        }
                                     </strong>
                                 </div>
 
@@ -2181,7 +2905,11 @@ const Loans = () => {
                                     </span>
 
                                     <strong>
-                                        {modal.loan.member_id ?? '—'}
+                                        {
+                                            modal.loan
+                                                .member_id ??
+                                            '—'
+                                        }
                                     </strong>
                                 </div>
 
@@ -2191,7 +2919,11 @@ const Loans = () => {
                                     </span>
 
                                     <strong>
-                                        {modal.loan.member_contact || '—'}
+                                        {
+                                            modal.loan
+                                                .member_contact ||
+                                            '—'
+                                        }
                                     </strong>
                                 </div>
 
@@ -2201,7 +2933,11 @@ const Loans = () => {
                                     </span>
 
                                     <strong>
-                                        {modal.loan.loan_type || '—'}
+                                        {
+                                            modal.loan
+                                                .loan_type ||
+                                            '—'
+                                        }
                                     </strong>
                                 </div>
 
@@ -2211,7 +2947,11 @@ const Loans = () => {
                                     </span>
 
                                     <strong>
-                                        {modal.loan.loan_type_id ?? '—'}
+                                        {
+                                            modal.loan
+                                                .loan_type_id ??
+                                            '—'
+                                        }
                                     </strong>
                                 </div>
 
@@ -2223,7 +2963,8 @@ const Loans = () => {
                                     <strong>
                                         ₱
                                         {money(
-                                            modal.loan.principalAmount
+                                            modal.loan
+                                                .principalAmount
                                         )}
                                     </strong>
                                 </div>
@@ -2235,8 +2976,11 @@ const Loans = () => {
 
                                     <strong>
                                         {Number(
-                                            modal.loan.interest_rate || 0
-                                        )}%
+                                            modal.loan
+                                                .interest_rate ||
+                                            0
+                                        )}
+                                        %
                                     </strong>
                                 </div>
 
@@ -2248,7 +2992,8 @@ const Loans = () => {
                                     <strong>
                                         ₱
                                         {money(
-                                            modal.loan.totalDue
+                                            modal.loan
+                                                .totalDue
                                         )}
                                     </strong>
                                 </div>
@@ -2261,7 +3006,8 @@ const Loans = () => {
                                     <strong>
                                         ₱
                                         {money(
-                                            modal.loan.total_paid
+                                            modal.loan
+                                                .total_paid
                                         )}
                                     </strong>
                                 </div>
@@ -2273,8 +3019,10 @@ const Loans = () => {
 
                                     <strong>
                                         {formatDate(
-                                            modal.loan.releaseDate ||
-                                            modal.loan.created_at
+                                            modal.loan
+                                                .releaseDate ||
+                                            modal.loan
+                                                .created_at
                                         )}
                                     </strong>
                                 </div>
@@ -2286,7 +3034,8 @@ const Loans = () => {
 
                                     <strong>
                                         {formatDate(
-                                            modal.loan.due_date
+                                            modal.loan
+                                                .due_date
                                         )}
                                     </strong>
                                 </div>
@@ -2299,10 +3048,31 @@ const Loans = () => {
 
                             <button
                                 className="loan-btn loan-btn-secondary"
-                                onClick={closeModal}
+                                onClick={
+                                    closeModal
+                                }
                             >
                                 Close
                             </button>
+
+                            {Number(
+                                modal.loan
+                                    .remaining_balance ||
+                                0
+                            ) > 0 && (
+
+                                <button
+                                    className="loan-btn loan-btn-primary"
+                                    onClick={() =>
+                                        openPaymentModal(
+                                            modal.loan
+                                        )
+                                    }
+                                >
+                                    Make Payment
+                                </button>
+
+                            )}
 
                             <button
                                 className="loan-btn loan-btn-primary"
@@ -2316,6 +3086,434 @@ const Loans = () => {
                             </button>
 
                         </footer>
+
+                    </section>
+
+                </div>
+
+            )}
+
+            {/* =========================================================
+                PAYMENT MODAL
+            ========================================================= */}
+
+            {paymentModal.open &&
+            paymentModal.loan && (
+
+                <div
+                    className="loan-modal-backdrop"
+                    onMouseDown={event => {
+
+                        if (
+                            event.target ===
+                            event.currentTarget &&
+                            !paymentLoading
+                        ) {
+
+                            closePaymentModal();
+                        }
+
+                    }}
+                >
+
+                    <section
+                        className="loan-modal payment-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="payment-modal-title"
+                    >
+
+                        <header className="loan-modal-header">
+
+                            <div>
+
+                                <span className="loans-eyebrow">
+                                    REPAYMENT
+                                </span>
+
+                                <h2 id="payment-modal-title">
+                                    Make Payment
+                                </h2>
+
+                                <p>
+                                    Record a payment for Loan #
+                                    {getLoanId(
+                                        paymentModal.loan
+                                    )}
+                                </p>
+
+                            </div>
+
+                            <button
+                                className="loan-modal-close"
+                                onClick={
+                                    closePaymentModal
+                                }
+                                disabled={
+                                    paymentLoading
+                                }
+                                aria-label="Close payment modal"
+                            >
+                                ×
+                            </button>
+
+                        </header>
+
+                        <form
+                            onSubmit={
+                                makePayment
+                            }
+                        >
+
+                            <div className="loan-modal-body">
+
+                                {paymentError && (
+
+                                    <div className="loan-form-error">
+                                        {
+                                            paymentError
+                                        }
+                                    </div>
+
+                                )}
+
+                                {/* PAYMENT SUMMARY */}
+
+                                <div className="loan-payment-summary">
+
+                                    <div>
+
+                                        <span>
+                                            Member
+                                        </span>
+
+                                        <strong>
+                                            {
+                                                paymentModal
+                                                    .loan
+                                                    .member_name
+                                            }
+                                        </strong>
+
+                                    </div>
+
+                                    <div>
+
+                                        <span>
+                                            Loan
+                                        </span>
+
+                                        <strong>
+                                            #
+                                            {getLoanId(
+                                                paymentModal
+                                                    .loan
+                                            )}
+                                        </strong>
+
+                                    </div>
+
+                                    <div>
+
+                                        <span>
+                                            Total Due
+                                        </span>
+
+                                        <strong>
+                                            ₱
+                                            {money(
+                                                paymentModal
+                                                    .loan
+                                                    .totalDue
+                                            )}
+                                        </strong>
+
+                                    </div>
+
+                                    <div>
+
+                                        <span>
+                                            Total Paid
+                                        </span>
+
+                                        <strong>
+                                            ₱
+                                            {money(
+                                                paymentModal
+                                                    .loan
+                                                    .total_paid
+                                            )}
+                                        </strong>
+
+                                    </div>
+
+                                    <div className="payment-remaining">
+
+                                        <span>
+                                            Remaining Balance
+                                        </span>
+
+                                        <strong>
+                                            ₱
+                                            {money(
+                                                paymentModal
+                                                    .loan
+                                                    .remaining_balance
+                                            )}
+                                        </strong>
+
+                                    </div>
+
+                                </div>
+
+                                <div className="loan-form-grid">
+
+                                    {/* AMOUNT */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Amount Paid (₱) *
+                                        </span>
+
+                                        <input
+                                            name="amount_paid"
+                                            type="number"
+                                            min="1"
+                                            max={
+                                                Math.floor(
+                                                    Number(
+                                                        paymentModal
+                                                            .loan
+                                                            .remaining_balance ||
+                                                        0
+                                                    )
+                                                )
+                                            }
+                                            step="1"
+                                            value={
+                                                paymentForm
+                                                    .amount_paid
+                                            }
+                                            onChange={
+                                                updatePaymentForm
+                                            }
+                                            placeholder="Enter payment amount"
+                                            required
+                                            disabled={
+                                                paymentLoading
+                                            }
+                                        />
+
+                                        <small>
+                                            Maximum:
+                                            {' '}
+                                            ₱
+                                            {money(
+                                                paymentModal
+                                                    .loan
+                                                    .remaining_balance
+                                            )}
+                                        </small>
+
+                                    </label>
+
+                                    {/* DATE */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Payment Date *
+                                        </span>
+
+                                        <input
+                                            name="payment_date"
+                                            type="date"
+                                            value={
+                                                paymentForm
+                                                    .payment_date
+                                            }
+                                            onChange={
+                                                updatePaymentForm
+                                            }
+                                            required
+                                            disabled={
+                                                paymentLoading
+                                            }
+                                        />
+
+                                    </label>
+
+                                    {/* METHOD */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Payment Method
+                                        </span>
+
+                                        <select
+                                            name="method"
+                                            value={
+                                                paymentForm
+                                                    .method
+                                            }
+                                            onChange={
+                                                updatePaymentForm
+                                            }
+                                            disabled={
+                                                paymentLoading
+                                            }
+                                        >
+
+                                            <option value="">
+                                                Select method
+                                            </option>
+
+                                            <option value="cash">
+                                                Cash
+                                            </option>
+
+                                            <option value="gcash">
+                                                GCash
+                                            </option>
+
+                                            <option value="bank">
+                                                Bank Transfer
+                                            </option>
+
+                                            <option value="maya">
+                                                Maya
+                                            </option>
+
+                                            <option value="other">
+                                                Other
+                                            </option>
+
+                                        </select>
+
+                                    </label>
+
+
+                                    {/* TYPE */}
+
+                                    <label className="loan-field">
+
+                                        <span>
+                                            Payment Type
+                                        </span>
+
+                                        <select
+                                            name="type"
+                                            value={
+                                                paymentForm
+                                                    .type
+                                            }
+                                            disabled
+                                        >
+
+                                            <option value="partial">
+                                                Partial
+                                            </option>
+
+                                            <option value="full">
+                                                Full
+                                            </option>
+
+                                        </select>
+
+                                        <small>
+                                            Automatically determined.
+                                        </small>
+
+                                    </label>
+
+                                </div>
+
+                                {paymentForm.amount_paid && (
+
+                                    <div className="loan-form-hint">
+
+                                        {Number(
+                                            paymentForm
+                                                .amount_paid
+                                        ) >= Number(
+                                            paymentModal
+                                                .loan
+                                                .remaining_balance ||
+                                            0
+                                        ) ? (
+
+                                            <>
+                                                This payment will
+                                                <strong>
+                                                    {' '}fully pay off{' '}
+                                                </strong>
+                                                the remaining balance.
+                                            </>
+
+                                        ) : (
+
+                                            <>
+                                                This will be recorded
+                                                as a
+                                                <strong>
+                                                    {' '}partial payment
+                                                </strong>
+                                                {' '}of ₱
+                                                {money(
+                                                    paymentForm
+                                                        .amount_paid
+                                                )}.
+                                            </>
+
+                                        )}
+
+                                    </div>
+
+                                )}
+
+                            </div>
+
+                            <footer className="loan-modal-footer">
+
+                                <button
+                                    type="button"
+                                    className="loan-btn loan-btn-secondary"
+                                    onClick={
+                                        closePaymentModal
+                                    }
+                                    disabled={
+                                        paymentLoading
+                                    }
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    className="loan-btn loan-btn-primary"
+                                    disabled={
+                                        paymentLoading ||
+                                        Number(
+                                            paymentModal
+                                                .loan
+                                                .remaining_balance ||
+                                            0
+                                        ) <= 0
+                                    }
+                                >
+
+                                    {paymentLoading
+                                        ? 'Processing…'
+                                        : 'Record Payment'
+                                    }
+
+                                </button>
+
+                            </footer>
+
+                        </form>
 
                     </section>
 
@@ -2339,6 +3537,7 @@ const Loans = () => {
                             event.currentTarget &&
                             !deleting
                         ) {
+
                             closeModal();
                         }
 
@@ -2370,7 +3569,10 @@ const Loans = () => {
                             {' '}for{' '}
 
                             <strong>
-                                {modal.loan.member_name}
+                                {
+                                    modal.loan
+                                        .member_name
+                                }
                             </strong>
 
                             {' '}will be deleted.
@@ -2393,16 +3595,24 @@ const Loans = () => {
 
                             <button
                                 className="loan-btn loan-btn-secondary"
-                                onClick={closeModal}
-                                disabled={deleting}
+                                onClick={
+                                    closeModal
+                                }
+                                disabled={
+                                    deleting
+                                }
                             >
                                 Cancel
                             </button>
 
                             <button
                                 className="loan-btn loan-btn-danger"
-                                onClick={deleteLoan}
-                                disabled={deleting}
+                                onClick={
+                                    deleteLoan
+                                }
+                                disabled={
+                                    deleting
+                                }
                             >
                                 {deleting
                                     ? 'Deleting…'
@@ -2422,4 +3632,4 @@ const Loans = () => {
     );
 };
 
-export default Loans;
+export default Applicants;
