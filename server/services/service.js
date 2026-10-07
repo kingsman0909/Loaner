@@ -5,8 +5,8 @@ const jwt = require("jsonwebtoken");
 const Collection = require('../model/Collection');
 
 
-const getCollections = async(filter) => {
-    const result = await Collection.getCollections(filter);
+const getCollections = async(filter, loaner_id) => {
+    const result = await Collection.getCollections(filter, loaner_id);
 
     return result;
 }

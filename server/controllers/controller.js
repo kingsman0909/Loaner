@@ -850,7 +850,7 @@ const getLoanTypes = async (req, res) => {
 //TRANSACTION - COLLECTION
 const getCollections = async (req, res) => {
     try {
-        const { filter = 'all' } = req.query;
+        const { filter = 'all', loaner_id } = req.query;
 
         const allowedFilters = [
             'all',
@@ -865,7 +865,7 @@ const getCollections = async (req, res) => {
         }
 
         const collections =
-            await authService.getCollections(filter);
+            await authService.getCollections(filter, loaner_id);
 
         return res.status(200).json(collections);
 

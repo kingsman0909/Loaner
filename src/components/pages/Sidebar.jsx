@@ -11,7 +11,7 @@ const Sidebar = (props) => {
         'Dashboard': 'Overview',
         'Loans': ['Applications'],
         'Borrowers': ['Members'],
-        'Transactions': ['Collections', 'Disbursements'],
+        'Transactions': ['Collections'],
     }
 
     useEffect(()=>{

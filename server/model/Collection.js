@@ -1,62 +1,65 @@
 const db = require('../config/db');
 
-const getMemberByPaymentHistory = async (filter = 'all') => {
-let query = `
-            SELECT
-                p.id,
+const getMemberByPaymentHistory = async (filter = 'all', loaner_id) => {
 
-                m.id AS member_id,
-                m.firstname,
-                m.lastname,
+    let query = `
+        SELECT
+            p.id,
 
-                l.id AS loan_id,
+            m.id AS member_id,
+            m.firstname,
+            m.lastname,
 
-                p.amount_paid AS amount_received,
-                p.payment_date AS collection_date,
+            l.id AS loan_id,
 
-                l.totalDue AS amount_due,
+            p.amount_paid AS amount_received,
+            p.payment_date AS collection_date,
 
-                CASE
-                    WHEN p.amount_paid IS NULL OR p.amount_paid <= 0
-                        THEN 'pending'
+            l.totalDue AS amount_due,
 
-                    WHEN p.amount_paid < l.totalDue
-                        THEN 'partial'
+            CASE
+                WHEN p.amount_paid IS NULL OR p.amount_paid <= 0
+                    THEN 'pending'
 
-                    WHEN p.amount_paid >= l.totalDue
-                        THEN 'received'
+                WHEN p.amount_paid < l.totalDue
+                    THEN 'partial'
 
-                    ELSE 'pending'
-                END AS status
+                WHEN p.amount_paid >= l.totalDue
+                    THEN 'received'
 
-            FROM payments p
+                ELSE 'pending'
+            END AS status
 
-            INNER JOIN loans l
-                ON l.id = p.loan_id
+        FROM payments p
 
-            INNER JOIN member m
-                ON m.id = l.member_id
-        `;
+        INNER JOIN loans l
+            ON l.id = p.loan_id
 
-        const params = [];
+        INNER JOIN member m
+            ON m.id = l.member_id
 
-        if (filter !== 'all') {
-            query += `
-                HAVING type = ?
-            `;
+        WHERE l.loaner_id = ?
+    `;
 
-            params.push(filter);
-        }
+    const params = [loaner_id];
 
+    if (filter !== 'all') {
         query += `
-            ORDER BY p.payment_date DESC, p.id DESC
+            HAVING status = ?
         `;
 
-        const [rows] = await db.query(query, params);
+        params.push(filter);
+    }
 
-        return rows;
-}
+    query += `
+        ORDER BY p.payment_date DESC, p.id DESC
+    `;
+
+    const [rows] = await db.query(query, params);
+
+    return rows;
+};
 
 module.exports = {
     getCollections: getMemberByPaymentHistory
-}
+};
