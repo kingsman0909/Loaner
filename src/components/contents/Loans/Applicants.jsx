@@ -1396,6 +1396,14 @@ const calculateTotalDue =
                 return;
             }
 
+            const release = parseDateOnly(form.releaseDate);
+            const due = parseDateOnly(form.due_date);
+
+            if (!release || !due) {
+                setFormError('Invalid release or due date.');
+                return;
+            }
+
             
 
             const releaseDay =
@@ -1522,19 +1530,19 @@ const calculateTotalDue =
                 );
 
             const months =
-                getFullMonthsBetween(
-                    form.releaseDate,
-                    form.due_date
-                );
+        getFullMonthsBetween(
+            form.releaseDate,
+            form.due_date
+        );
 
-            if (months < 1) {
+    if (months < 1) {
 
-                setFormError(
-                    'Due date must be at least one month after the release date.'
-                );
+        setFormError(
+            'Due date must be at least one month after the release date.'
+        );
 
-                return;
-            }
+        return;
+    }
 
             const totalInterest =
                 principal *
