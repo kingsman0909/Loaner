@@ -1436,6 +1436,9 @@ const loginMember = async ({username, password}) => {
     if(!result){
         throw new Error('User Member Not Found');
     }
+    if(result.password !== password){
+        throw new Error('Invalid Password');
+    }
     const {userData} = result;
 
     const token =
