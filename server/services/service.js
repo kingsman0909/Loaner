@@ -3,7 +3,7 @@ const Loaner = require("../model/Loaner");
 const Member = require("../model/Member");
 const jwt = require("jsonwebtoken");
 const Collection = require('../model/Collection');
-
+const memberDataModel = require('../model/MemberData')
 
 const getCollections = async(filter, loaner_id) => {
     const result = await Collection.getCollections(filter, loaner_id);
@@ -1686,6 +1686,24 @@ const getLoanTypes = async() => {
 }
 
 
+const getMemberData = async (memberId) => {
+
+    if (!memberId) {
+        throw new Error("Member ID is required");
+    }
+
+    const data = await memberDataModel.getMemberData(memberId);
+
+    if (!data) {
+        const error = new Error("Member not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return data;
+};
+
+
 // ============================================================
 // EXPORT
 // ============================================================
@@ -1717,6 +1735,7 @@ module.exports = {
     getMemberHistory,
     getMemberBalance,
     getMemberStatistics,
+    getMemberData,
 
     //COLLECTIONS
     getCollections

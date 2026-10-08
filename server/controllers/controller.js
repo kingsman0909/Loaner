@@ -897,6 +897,41 @@ const getCollections = async (req, res) => {
     }
 };
 
+
+const getMyData = async (req, res) => {
+
+    try {
+
+        // IMPORTANT:
+        // galing ito sa authenticated user
+        const memberId = req.user.id;
+
+        const data =
+            await memberDataService.getMemberData(memberId);
+
+        return res.status(200).json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET MEMBER DATA ERROR:",
+            error
+        );
+
+        return res.status(
+            error.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                error.message ||
+                "Failed to get member data"
+        });
+    }
+};
+
 // ============================================================
 // EXPORT
 // ============================================================
@@ -918,6 +953,7 @@ module.exports = {
     deleteLoan,
 
     // MEMBERS
+    getMyData,
     loginMember,
     getMembers,
     getMember,

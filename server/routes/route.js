@@ -27,6 +27,7 @@ const {
     getMemberHistory,
     getMemberBalance,
     getMemberStatistics,
+    getMyData,
 
     //COLLECTIONS
     getCollections
@@ -175,6 +176,7 @@ router.get(
 //
 // GET /members
 //
+router.get('')
 router.get(
     "/members",
     verifyToken,
@@ -245,6 +247,12 @@ router.delete(
 //
 // GET /members/25/history
 //
+
+router.get(
+    "/member/me",
+    authMiddleware,
+    getMyData
+);
 router.get(
     "/members/:id/history",
     verifyToken,
