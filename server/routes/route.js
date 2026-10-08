@@ -176,7 +176,6 @@ router.get(
 //
 // GET /members
 //
-router.get('')
 router.get(
     "/members",
     verifyToken,
