@@ -1439,7 +1439,7 @@ const loginMember = async ({username, password}) => {
     if(result.password !== password){
         throw new Error('Invalid Password');
     }
-    const {userData} = result;
+    
 
     const token =
         jwt.sign(
@@ -1459,7 +1459,7 @@ const loginMember = async ({username, password}) => {
             }
         );
     return {
-        userData,
+        result,
         token
     };
 }
