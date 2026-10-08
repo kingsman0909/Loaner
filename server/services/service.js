@@ -1449,7 +1449,7 @@ const loginMember = async ({username, password}) => {
                 username:
                     result.username,
 
-                result: userData
+                userData: result
             },
 
             process.env.JWT_SECRET,
@@ -1459,7 +1459,7 @@ const loginMember = async ({username, password}) => {
             }
         );
     return {
-        result,
+        userData: result,
         token
     };
 }
