@@ -178,7 +178,6 @@ router.get(
 //
 router.get(
     "/members",
-    verifyToken,
     getMembers
 );
 
