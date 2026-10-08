@@ -250,7 +250,6 @@ router.delete(
 
 router.get(
     "/member/me",
-    authMiddleware,
     getMyData
 );
 router.get(
