@@ -4,6 +4,7 @@ const MemberHome = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const memberData = localStorage.getItem('member_token');
 
     const [selectedLoan, setSelectedLoan] = useState(null);
 
@@ -17,9 +18,7 @@ const MemberHome = () => {
               setLoading(true);
               setError("");
 
-              const token = localStorage.getItem("member_token");
-
-              const response = await fetch(`${API_BASE_URL}/member/me`, {
+              const response = await fetch(`${API_BASE_URL}/member/me?i${memberData.id}`, {
                   method: "GET",
                   headers: {
                       "Content-Type": "application/json",

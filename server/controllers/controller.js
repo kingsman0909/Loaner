@@ -904,7 +904,7 @@ const getMyData = async (req, res) => {
         console.log('controller reached')
         // IMPORTANT:
         // galing ito sa authenticated user
-        const memberId = req.user.id;
+        const memberId = req.query.id;
 
         const data =
             await authService.getMemberData(memberId);
