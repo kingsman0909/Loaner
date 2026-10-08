@@ -1687,20 +1687,36 @@ const getLoanTypes = async() => {
 
 
 const getMemberData = async (memberId) => {
-    console.log('service reached')
-    if (!memberId) {
-        throw new Error("Member ID is required");
-    }
+    try {
+        console.log("service reached");
 
-    const data = await memberDataModel.getMemberData(memberId);
+        if (!memberId) {
+            throw new Error("Member ID is required");
+        }
 
-    if (!data) {
-        const error = new Error("Member not found");
-        error.statusCode = 404;
+        const data =
+            await memberDataModel.getMemberData(memberId);
+
+        if (!data) {
+            const error =
+                new Error("Member not found");
+
+            error.statusCode = 404;
+
+            throw error;
+        }
+
+        return data;
+
+    } catch (error) {
+
+        console.error(
+            "GET MEMBER DATA SERVICE ERROR:",
+            error
+        );
+
         throw error;
     }
-
-    return data;
 };
 
 
