@@ -17,7 +17,7 @@ const MemberHome = () => {
               setLoading(true);
               setError("");
 
-              const token = localStorage.getItem("token");
+              const token = localStorage.getItem("member_token");
 
               const response = await fetch(`${API_BASE_URL}/member/me`, {
                   method: "GET",
