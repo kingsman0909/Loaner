@@ -77,7 +77,7 @@ const loginLoaner = async ({
 
     console.log(
         "LOGIN SERVICE:",
-        username
+        username, password
     );
 
 
@@ -86,6 +86,9 @@ const loginLoaner = async ({
             username
         );
 
+    console.log(
+        'found user', result
+    )
 
     if (!result) {
         throw new Error(
