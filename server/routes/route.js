@@ -248,10 +248,10 @@ router.delete(
 // GET /members/25/history
 //
 
-router.get(
-    "/member/me",
-    getMyData
-);
+    router.get(
+        "/member/me",
+        getMyData
+    );
 router.get(
     "/members/:id/history",
     verifyToken,

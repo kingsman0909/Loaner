@@ -1687,7 +1687,7 @@ const getLoanTypes = async() => {
 
 
 const getMemberData = async (memberId) => {
-
+    console.log('service reached')
     if (!memberId) {
         throw new Error("Member ID is required");
     }

@@ -901,7 +901,7 @@ const getCollections = async (req, res) => {
 const getMyData = async (req, res) => {
 
     try {
-
+        console.log('controller reached')
         // IMPORTANT:
         // galing ito sa authenticated user
         const memberId = req.user.id;
