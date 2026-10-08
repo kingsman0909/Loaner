@@ -907,7 +907,7 @@ const getMyData = async (req, res) => {
         const memberId = req.user.id;
 
         const data =
-            await memberDataService.getMemberData(memberId);
+            await authService.getMemberData(memberId);
 
         return res.status(200).json({
             success: true,

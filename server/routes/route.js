@@ -234,7 +234,7 @@ router.patch(
 //
 router.delete(
     "/members/:id",
-    verifyToken,
+    verifyToken,    
     deleteMember
 );
 
