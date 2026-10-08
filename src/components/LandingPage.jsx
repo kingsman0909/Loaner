@@ -36,7 +36,12 @@ const LandingPage = () => {
       if (result.ok) {
         localStorage.setItem(
           'loaner',
-          JSON.stringify(response.userData)
+          JSON.stringify({
+            id: reponse.userData.id,
+            username: reponse.userData.username,
+            role: reponse.userData.role,
+            allData: reponse.userData
+          })
         );
 
         localStorage.setItem(

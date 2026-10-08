@@ -1,16 +1,38 @@
-import React, { useEffect, useState } from "react";
-import { Navigate  } from "react-router-dom";
+import { Navigate } from 'react-router-dom';
 
-const ProtectedRoutes = (props) => {
-    const token = localStorage.getItem('loaner');
-    
-    if(!token){
-        alert("You cant go to homepage without logging in")
-        return <Navigate to='/' />
+const ProtectedRoutes = ({ children, allowedRole, storageKey }) => {
+    const userData = localStorage.getItem(storageKey);
+
+    // Not logged in
+    if (!userData) {
+        return <Navigate to="/" replace />;
     }
 
-    return props.children;
-    
-}
+    let user;
 
-export default ProtectedRoutes
+    try {
+        user = JSON.parse(userData);
+    } catch (error) {
+        localStorage.removeItem(storageKey);
+        return <Navigate to="/" replace />;
+    }
+
+    // Check role
+    if (user.role !== allowedRole) {
+
+        // User is logged in but doesn't have permission
+        if (user.role === 'member') {
+            return <Navigate to="/member/homepage" replace />;
+        }
+
+        if (user.role === 'admin') {
+            return <Navigate to="/homepage" replace />;
+        }
+
+        return <Navigate to="/" replace />;
+    }
+
+    return children;
+};
+
+export default ProtectedRoutes;

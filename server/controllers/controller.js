@@ -31,6 +31,21 @@ const loginLoaner = async (req, res) => {
     }
 };
 
+const loginMember = async(req, res) => {
+    try{
+        const result = await authService.loginMember(req.body);
+
+        return res.status(200).json(
+            result
+        )
+    }
+    catch(err){
+        return res.status(401).json({
+            message: err.message
+        })
+    }
+}
+
 
 const signupLoaner = async (req, res) => {
 
@@ -903,6 +918,7 @@ module.exports = {
     deleteLoan,
 
     // MEMBERS
+    loginMember,
     getMembers,
     getMember,
     createMember,

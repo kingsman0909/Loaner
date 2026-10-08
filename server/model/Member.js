@@ -66,6 +66,14 @@ class Member {
         };
     }
 
+    static async loginMember(username, password) {
+            const [rows] = await db.execute(`
+                select * from member where username = ${username}
+                and password = ${password} limit 1;
+            `);
+            return rows[0] || null;
+    }
+
 
     // =========================================================
     // FIND BY ID

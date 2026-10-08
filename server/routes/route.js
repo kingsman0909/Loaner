@@ -17,6 +17,7 @@ const {
     getLoanTypes,
 
     // MEMBERS
+    loginMember,
     getMembers,
     getMember,
     createMember,
@@ -51,6 +52,8 @@ router.post(
     "/login",
     loginLoaner
 );
+
+router.post('/member/login', loginMember);
 
 router.post(
     "/signup",

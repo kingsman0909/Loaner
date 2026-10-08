@@ -1427,6 +1427,37 @@ const createMember = async (
     };
 };
 
+const loginMember = async ({username, password}) => {
+    const result = await Member.loginMember(username, password);
+
+    if(!result){
+        throw new Error('User Member Not Found');
+    }
+    const {userData} = result;
+
+    const token =
+        jwt.sign(
+            {
+                id: result.id,
+
+                username:
+                    result.username,
+
+                result: userData
+            },
+
+            process.env.JWT_SECRET,
+
+            {
+                expiresIn: "1d"
+            }
+        );
+    return {
+        userData,
+        token
+    };
+}
+
 
 // ============================================================
 // UPDATE MEMBER
@@ -1670,6 +1701,7 @@ module.exports = {
     getLoanTypes,
 
     // MEMBERS
+    loginMember,
     getMembers,
     getMember,
     createMember,
