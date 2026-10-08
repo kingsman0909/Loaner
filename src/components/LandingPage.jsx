@@ -218,6 +218,12 @@ const LandingPage = () => {
             {/* FOOTER */}
 
             <div className="login-footer">
+              <span>
+                Are you a member?
+              </span>
+              <button onClick={()=> navigate('/member/login')}>
+                Go here
+              </button>
 
               <span>
                 Don't have an account?

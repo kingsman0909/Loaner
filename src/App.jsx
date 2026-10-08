@@ -7,6 +7,7 @@ import Homepage from './components/pages/Homepage';
 import Protect from './ProtectedRoutes';
 import Sign from './components/Signup';
 import MemberHome from './components/Members/homepage/MemberHome';
+import MemberLogin from './components/Members/auth/Login';
 
 function App() {
     return (
@@ -19,6 +20,7 @@ function App() {
 
 
             {/* MEMBER */}
+            <Route path='/member/login' element={<MemberLogin />} />
             <Route
                 path="/member/homepage"
                 element={
