@@ -11,6 +11,8 @@ class Member {
 
         const {
             loaner_id,
+            username,
+            password,
             firstname,
             lastname,
             age,
@@ -26,6 +28,8 @@ class Member {
         const sql = `
             INSERT INTO member (
                 loaner_id,
+                username,
+                password,
                 firstname,
                 lastname,
                 age,
@@ -37,11 +41,13 @@ class Member {
                 contact,
                 status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const [result] = await db.execute(sql, [
             loaner_id,
+            username,
+            password,
             firstname,
             lastname,
             age,

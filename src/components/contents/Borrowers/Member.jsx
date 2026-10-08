@@ -413,6 +413,8 @@ const Members = (props) => {
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>USERNAME</th>
+                            <th>PASSWORD</th>
                             <th>Member</th>
                             <th>Contact</th>
                             <th>Address</th>
@@ -455,6 +457,14 @@ const Members = (props) => {
 
                                     <td>
                                         #{member.id}
+                                    </td>
+
+                                    <td>
+                                        {member.username}
+                                    </td>
+
+                                    <td>
+                                        {member.password}
                                     </td>
 
                                     <td>

@@ -1310,26 +1310,55 @@ const createMember = async (
 ) => {
 
     if (!data.firstname) {
-
         throw new Error(
             "Firstname is required"
         );
     }
 
-
     if (!data.lastname) {
-
         throw new Error(
             "Lastname is required"
         );
     }
 
+    // ========================================================
+    // GENERATE MEMBER CREDENTIALS
+    // ========================================================
+
+    const firstname =
+        data.firstname.trim().toLowerCase();
+
+    const lastname =
+        data.lastname.trim().toLowerCase();
+
+    // Example:
+    // juan.delacruz
+    const baseUsername =
+        `${firstname}.${lastname}`
+            .replace(/\s+/g, "");
+
+    // Temporary password
+    // Example:
+    // Juan@12345
+    const temporaryPassword =
+        `${data.firstname.trim()}@12345`;
+
+
+    // ========================================================
+    // CREATE MEMBER
+    // ========================================================
 
     const result =
         await Member.create({
 
             loaner_id:
                 Number(loanerId),
+
+            username:
+                baseUsername,
+
+            password:
+                temporaryPassword,
 
             firstname:
                 data.firstname,
@@ -1373,7 +1402,29 @@ const createMember = async (
         });
 
 
-    return result;
+    // ========================================================
+    // RETURN CREDENTIALS
+    // ========================================================
+    //
+    // Return the temporary password ONLY here.
+    // Never return the hashed password.
+    //
+
+    return {
+
+        ...result,
+
+        credentials: {
+
+            username:
+                baseUsername,
+
+            temporaryPassword:
+                temporaryPassword
+
+        }
+
+    };
 };
 
 
