@@ -20,6 +20,8 @@ function App() {
 
 
             {/* MEMBER */}
+            
+            {/* 
             <Route path='/member/login' element={<MemberLogin />} />
             <Route
                 path="/member/homepage"
@@ -32,6 +34,7 @@ function App() {
                     </Protect>
                 }
             />
+            */}
 
 
             {/* ADMIN / LOANER */}

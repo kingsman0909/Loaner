@@ -6,7 +6,7 @@ const Header = (props) => {
   return (
     <div className='header'>
       <div className='h=left'>
-        <h2>{props?.name}</h2>
+        <h2>LOANER</h2>
       </div>
 
       <div className='h-right'>
