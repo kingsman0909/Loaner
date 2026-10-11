@@ -2,7 +2,6 @@ const db = require('../config/db');
 
 const getMemberByPaymentHistory = async (filter = 'all', loaner_id) => {
 
-    const stat = 'full';
 
     let query = `
         SELECT
@@ -50,7 +49,7 @@ const getMemberByPaymentHistory = async (filter = 'all', loaner_id) => {
             HAVING status = ?
         `;
 
-        params.push(stat);
+        params.push(filter);
     }
 
     console.log("Getting collection type of ", filter);
