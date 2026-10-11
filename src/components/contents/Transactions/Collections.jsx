@@ -115,7 +115,7 @@ const Collections = () => {
                     className="transaction-filter"
                 >
                     <option value="all">All Status</option>
-                    <option value="received">full payment</option>
+                    <option value="full">full payment</option>
                     <option value="partial">Partial</option>
                 </select>
 

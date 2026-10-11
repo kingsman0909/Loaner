@@ -19,14 +19,12 @@ const getMemberByPaymentHistory = async (filter = 'all', loaner_id) => {
             l.totalDue AS amount_due,
 
             CASE
-                WHEN p.amount_paid IS NULL OR p.amount_paid <= 0
-                    THEN 'pending'
 
                 WHEN p.amount_paid < l.totalDue
                     THEN 'partial'
 
                 WHEN p.amount_paid >= l.totalDue
-                    THEN 'received'
+                    THEN 'full'
 
                 ELSE 'pending'
             END AS status
