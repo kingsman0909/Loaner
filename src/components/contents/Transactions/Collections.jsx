@@ -17,6 +17,7 @@ const Collections = () => {
         try {
             setLoading(true);
 
+            console.log("Fetching collections with filter:", filter, "and loaner_id:", loaner_id);
             const response = await fetch(
                 `${API_BASE_URL}/transactions/collections?filter=${filter}&loaner_id=${loaner_id}`,
                 {
