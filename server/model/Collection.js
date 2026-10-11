@@ -51,6 +51,7 @@ const getMemberByPaymentHistory = async (filter = 'all', loaner_id) => {
         params.push(filter);
     }
 
+    console.log("Getting collection type of ", filter);
     query += `
         ORDER BY p.payment_date DESC, p.id DESC
     `;
