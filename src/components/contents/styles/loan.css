@@ -1112,6 +1112,11 @@
     cursor: not-allowed;
 }
 
+.loan-icon-btn.edit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 
 /* =========================================================
    PAYMENT MODAL

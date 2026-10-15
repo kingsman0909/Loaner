@@ -15,6 +15,9 @@ const STATUSES = [
 const getLoanId = loan =>
     loan?.id ?? loan?.loan_id;
 
+const isLoanPaid = loan =>
+    String(loan?.status || '').toLowerCase() === 'paid';
+
 const getErrorMessage = (result, fallback) =>
     result?.message ||
     result?.error ||
@@ -1105,6 +1108,14 @@ const calculateTotalDue =
 
     const openEdit = loan => {
 
+        if (isLoanPaid(loan)) {
+            showNotice(
+                'error',
+                'Paid loans are locked and can no longer be edited.'
+            );
+            return;
+        }
+
         const selectedLoanType =
             getLoanTypeById(
                 loan.loan_type_id
@@ -1377,6 +1388,16 @@ const calculateTotalDue =
             event.preventDefault();
 
             setFormError('');
+
+            if (
+                modal.type === 'edit' &&
+                isLoanPaid(modal.loan)
+            ) {
+                setFormError(
+                    'Paid loans are locked and can no longer be edited.'
+                );
+                return;
+            }
 
             if (!form.releaseDate) {
 
@@ -2612,14 +2633,23 @@ const calculateTotalDue =
                                                     {/* EDIT */}
 
                                                     <button
-                                                        className="loan-icon-btn"
-                                                        title="Edit loan"
-                                                        aria-label="Edit loan"
+                                                        className="loan-icon-btn edit"
+                                                        title={
+                                                            loan.status === 'paid'
+                                                                ? 'Paid loans cannot be edited'
+                                                                : 'Edit loan'
+                                                        }
+                                                        aria-label={
+                                                            isLoanPaid(loan)
+                                                                ? 'Paid loans cannot be edited'
+                                                                : 'Edit loan'
+                                                        }
                                                         onClick={() =>
                                                             openEdit(
                                                                 loan
                                                             )
                                                         }
+                                                        disabled={loan.status === 'paid'}
                                                     >
                                                         ✎
                                                     </button>
